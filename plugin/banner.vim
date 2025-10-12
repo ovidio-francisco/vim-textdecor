@@ -5,8 +5,8 @@ let g:loaded_textdecor_banner = 1
 command! -range=% Banner call textdecor#banner#Run(<line1>, <line2>)
 
 " Your existing mappings (unchanged)
-nnoremap <silent> <leader>af :<C-u>call Banner(line('.'), line('.'))<CR>
-xnoremap <silent> <leader>af :<C-u>call Banner(line("'<"), line("'>"))<CR>
+nnoremap <silent> <leader>af :<C-u>call textdecor#banner#Run(line('.'), line('.'))<CR>
+xnoremap <silent> <leader>af :<C-u>call textdecor#banner#Run(line("'<"), line("'>"))<CR>
 
 
 
