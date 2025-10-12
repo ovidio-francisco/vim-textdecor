@@ -1,44 +1,13 @@
-" Builds a decorated line on the current line.
-" Args via <q-args>:
-"   total (number), filler (string), enclosers (string like '[]', '{}', '()' or any 1–2 chars)
-function! textdecor#decore#Run(qargs) abort
-  " Defaults
-  let l:total   = 40
-  let l:filler  = '-'
-  let l:enc     = ''
+function! textdecor#decore#Decore(...) abort
+  let l:text  = getline('.')
+  let l:total = (a:0 >= 1 ? a:1 : 40)
+  let l:filler = (a:0 >= 2 ? a:2 : '-') " default '-'
 
-  " Parse qargs (Option 1)
-  if !empty(a:qargs)
-    let l:tokens = split(a:qargs)
-    " first number -> total
-    " first non-number -> filler
-    " second non-number -> enclosers
-    let l:got_filler = 0
-    for tok in l:tokens
-      if tok =~# '^\d\+$'
-        let l:total = str2nr(tok)
-      elseif !l:got_filler
-        let l:filler = tok
-        let l:got_filler = 1
-      else
-        let l:enc = tok
-      endif
-    endfor
-  endif
-
-  " Current line
-  let l:text = getline('.')
-
-  " Empty line → just a filler bar
-  if empty(l:text)
-    call setline('.', repeat(l:filler, l:total))
-    return
-  endif
-
-  " Build optional enclosers (keep your original behavior)
+  " Optional enclosers
   let l:l_enclose = ''
   let l:r_enclose = ''
-  if type(l:enc) == v:t_string && l:enc !=# ''
+  if a:0 >= 3 && type(a:3) == v:t_string && a:3 !=# ''
+    let l:enc    = a:3
     let l:nchars = strchars(l:enc)
     if l:nchars >= 2
       let l:l_enclose = strcharpart(l:enc, 0, 1)
@@ -49,7 +18,13 @@ function! textdecor#decore#Run(qargs) abort
     endif
   endif
 
-  " Build decorated core
+  " Case: empty line → just filler
+  if empty(l:text)
+    call setline('.', repeat(l:filler, l:total))
+    return
+  endif
+
+  " Build decorated text
   let l:has_enclose = (l:l_enclose !=# '' || l:r_enclose !=# '')
   if l:has_enclose
     let l:decorated = ' ' . l:l_enclose . ' ' . l:text . ' ' . l:r_enclose . ' '
@@ -63,49 +38,31 @@ function! textdecor#decore#Run(qargs) abort
     return
   endif
 
-  " Distribute filler evenly (preserve your original len()-based logic)
+  " Distribute filler evenly
   let l:left  = repeat(l:filler, float2nr(l:remaining / 2))
   let l:right = repeat(l:filler, l:remaining - len(l:left))
 
   call setline('.', l:left . l:decorated . l:right)
 endfunction
 
-" Interactive variant:
-" - filler: string (default '-')
-" - countlen: number or 1/2/3 → 20/40/80 (keeps your mapping)
-" Prompts one key for encloser; pairs [] {} () <> or duplicates any other char.
-function! textdecor#decore#Smart(qargs) abort
-  " Defaults
-  let l:filler   = '-'
-  let l:countlen = 2
 
-  if !empty(a:qargs)
-    for tok in split(a:qargs)
-      if tok =~# '^\d\+$'
-        let l:countlen = str2nr(tok)
-      else
-        let l:filler = tok
-      endif
-    endfor
-  endif
-
-  " Map countlen to length (keep your original rule)
-  let l:L = l:countlen >= 10 ? l:countlen
-        \ : l:countlen == 1 ? 20
-        \ : l:countlen == 2 ? 40
-        \ : l:countlen == 3 ? 80
+function! textdecor#decore#DecoreSmart(filler, countlen) abort
+  let L = a:countlen >= 10 ? a:countlen
+        \ : a:countlen == 1 ? 20
+        \ : a:countlen == 2 ? 40
+        \ : a:countlen == 3 ? 80
         \ : 40
 
-  " Read one key for encloser
-  let l:c = getchar()
-  if l:c == 13 || l:c == 10 || l:c == 27
-    let l:E = ''
+  let c = getchar()                " Get exactly one key
+
+  if c == 13 || c == 10 || c == 27 " CR  NL or Esc => no encloser
+    let E = ''
   else
-    let l:ch = nr2char(l:c)
-    let l:pairs = { '[':'[]', '{':'{}', '(':'()', '<':'<>' }
-    let l:E = has_key(l:pairs, l:ch) ? l:pairs[l:ch] : (l:ch . l:ch)
+    let ch = nr2char(c)
+    let pairs = { '[':'[]', '{':'{}', '(':'()', '<':'<>' }
+    let E = has_key(pairs, ch) ? pairs[ch] : (ch . ch)
   endif
 
-  " Reuse Run() with assembled args
-  call textdecor#decore#Run(l:L . ' ' . l:filler . ' ' . l:E)
+  call textdecor#decore#Decore(L, a:filler, E)
 endfunction
+
