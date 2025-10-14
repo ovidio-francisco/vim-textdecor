@@ -198,40 +198,40 @@ endfunction
 
 
 function! textdecor#box#Unbox(first, last) range abort
-  " Get selection
   let raw = getline(a:first, a:last)
   if empty(raw) | return | endif
 
-  " ---- 1) Remove top & bottom borders (supports ┌─┐/└─┘, ╔═╗/╚═╝, +-+/+-+)
-  let is_top    = {-> raw[0] =~# '^\s*\%(┌\%([─]\+\)┐\|╔\%([═]\+\)╗\|+\%(-\+\)+\)\s*$'}
-  let is_bottom = {-> raw[-1] =~# '^\s*\%(└\%([─]\+\)┘\|╚\%([═]\+\)╝\|+\%(-\+\)+\)\s*$'}
+  " ---- 1) Remove top & bottom borders
+  let top_pat    = '^\s*\%(┌\%([─]\+\)┐\|╔\%([═]\+\)╗\|+\%(-\+\)+\)\s*$'
+  let bottom_pat = '^\s*\%(└\%([─]\+\)┘\|╚\%([═]\+\)╝\|+\%(-\+\)+\)\s*$'
 
   let start = 0
   let endi  = len(raw) - 1
-  if is_top()    | let start += 1 | endif
-  if is_bottom() | let endi  -= 1 | endif
+  if raw[0] =~# top_pat    | let start += 1 | endif
+  if raw[-1] =~# bottom_pat | let endi  -= 1 | endif
 
   let body = start <= endi ? raw[start : endi] : []
-
-  " Early exit if nothing left
   if empty(body)
-    " Replace with empty selection
     call setline(a:first, [])
     if a:first <= a:last | call deletebufline('', a:first, a:last) | endif
     return
   endif
 
-  " ---- 2) Remove vertical borders (│ │ / ║ ║ / | |) and surrounding spaces
-  " Accept optional left margin (outer alignment)
-  let side_pat = '^\s*[\|│║]\s?(.*?)(?:\s*)[\|│║]\s*$'
+  " ---- 2) Remove vertical borders and margin
+  let side_pat = '^\s*[\|│║]\s?\(.*\)\s*[\|│║]\s*$'
+  let stripped = []
+  for v in body
+    if v =~# side_pat
+      call add(stripped, substitute(v, side_pat, '\1', ''))
+    else
+      call add(stripped, v)
+    endif
+  endfor
 
-  let stripped = map(copy(body), {_,v -> v =~# side_pat ? matchstr(v, side_pat, 0, 1) : v})
-
-  " ---- 3) Trim non-blank lines (both sides)
+  " ---- 3) Trim non-blank lines
   let trimmed = map(stripped, {_,v -> v =~# '^\s*$' ? '' : substitute(v, '^\s\+|\s\+$', '', 'g')})
 
-  " ---- 4) Join consecutive non-blank lines, 5) Keep blank/empty lines
-  " We treat blank lines as paragraph separators.
+  " ---- 4) Join consecutive non-blank lines, 5) keep blanks
   let out = []
   let acc = []
   for L in trimmed
@@ -240,7 +240,7 @@ function! textdecor#box#Unbox(first, last) range abort
         call add(out, join(acc, ' '))
         let acc = []
       endif
-      call add(out, '')   " preserve blank line
+      call add(out, '')
     else
       call add(acc, L)
     endif
@@ -249,11 +249,7 @@ function! textdecor#box#Unbox(first, last) range abort
     call add(out, join(acc, ' '))
   endif
 
-  " Avoid trailing extra blank if original ended with one top/bottom only
-  " (not strictly necessary, but keeps things tidy)
-  " -- no-op by default --
-
-  " Replace selection safely
+  " ---- Replace safely
   let sel_len = a:last - a:first + 1
   if len(out) <= sel_len
     call setline(a:first, out)
@@ -265,6 +261,5 @@ function! textdecor#box#Unbox(first, last) range abort
     call append(a:first + sel_len - 1, out[sel_len :])
   endif
 endfunction
-
 
 
