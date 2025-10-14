@@ -280,3 +280,20 @@ function! textdecor#box#Unbox(first, last) range abort
 endfunction
 
 
+
+function! textdecor#box#UnboxCmd(has_range) range abort
+  if a:has_range
+    " Use the user's visual selection as-is
+    return textdecor#box#Unbox(line("'<"), line("'>"))
+  endif
+
+  " No range: temporarily select inner paragraph with vip, then unbox
+  let view = winsaveview()
+  silent! normal! vip
+  let l1 = getpos("'<")[1]
+  let l2 = getpos("'>")[1]
+  call winrestview(view)
+
+  return textdecor#box#Unbox(l1, l2)
+endfunction
+
