@@ -281,19 +281,19 @@ endfunction
 
 
 
-function! textdecor#box#UnboxCmd(has_range) range abort
-  if a:has_range
-    " Use the user's visual selection as-is
-    return textdecor#box#Unbox(line("'<"), line("'>"))
-  endif
-
-  " No range: temporarily select inner paragraph with vip, then unbox
+" autoload/textdecor/box.vim
+function! textdecor#box#UnboxAuto() abort
+  " Save cursor/view state
   let view = winsaveview()
+
+  " Select inner paragraph (the box)
   silent! normal! vip
   let l1 = getpos("'<")[1]
   let l2 = getpos("'>")[1]
+
   call winrestview(view)
 
-  return textdecor#box#Unbox(l1, l2)
+  " Call your main Unbox
+  call textdecor#box#Unbox(l1, l2)
 endfunction
 
