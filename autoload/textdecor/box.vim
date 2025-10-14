@@ -284,11 +284,8 @@ endfunction
 function! textdecor#box#UnboxAuto() abort
   let view = winsaveview()
   let line = getline('.')
-  if line !~# '[│║┌╔┐╗└╚┘╝]'
-    echohl WarningMsg
-    echom "Cursor must be inside a box to :Unbox"
-    echohl None
-    return
+  if line !~# '[│║┌╔┐╗└╚┘╝]' && line('.') < line('$')
+    normal! j
   endif
 
   silent! normal! vip
