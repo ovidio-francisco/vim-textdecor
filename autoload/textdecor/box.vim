@@ -324,4 +324,16 @@ function! textdecor#box#UnboxAuto() abort
 endfunction
 
 
+function! textdecor#box#UnboxVip() abort
+  let view = winsaveview()
+  silent! normal! vip
+  let l1 = getpos("'<")[1]
+  let l2 = getpos("'>")[1]
+  call winrestview(view)
+  return textdecor#box#Unbox(l1, l2)
+endfunction
+
+
+
+
 
