@@ -281,13 +281,6 @@ endfunction
 
 
 
-function! textdecor#box#UnboxAuto() abort
-  silent! normal! vip
-  let l1 = getpos("'<")[1]
-  let l2 = getpos("'>")[1]
-
-  call textdecor#box#Unbox(l1, l2)
-endfunction
 
 
 
