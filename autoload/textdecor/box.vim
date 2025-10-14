@@ -281,19 +281,20 @@ endfunction
 
 
 
-" autoload/textdecor/box.vim
 function! textdecor#box#UnboxAuto() abort
-  " Save cursor/view state
   let view = winsaveview()
+  let line = getline('.')
+  if line !~# '[│║┌╔┐╗└╚┘╝]'
+    echohl WarningMsg
+    echom "Cursor must be inside a box to :Unbox"
+    echohl None
+    return
+  endif
 
-  " Select inner paragraph (the box)
   silent! normal! vip
   let l1 = getpos("'<")[1]
   let l2 = getpos("'>")[1]
-
   call winrestview(view)
 
-  " Call your main Unbox
   call textdecor#box#Unbox(l1, l2)
 endfunction
-
