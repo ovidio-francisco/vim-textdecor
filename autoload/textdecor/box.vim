@@ -1,7 +1,3 @@
-
-" =============== [ Box ] ================
-
-
 function! textdecor#box#Selection(first, last, qargs) range
   " Defaults
   let l:style_key = '-'
@@ -9,14 +5,17 @@ function! textdecor#box#Selection(first, last, qargs) range
   let l:align     = 'left'     " inner: left|right|center|centerblock(cblock|c1|c2)
   let l:outer     = 'none'     " box: none|left|center|right
   let l:screenw   = (&textwidth > 0 ? &textwidth : 0)
+  let l:explicit_width = 0     " set to >0 when user passed a width
 
   " Parse <q-args>
   if !empty(a:qargs)
     for tok in split(a:qargs)
       if tok =~# '^\d\+$'
         let l:min_width = str2nr(tok)
+        let l:explicit_width = l:min_width
       elseif tok =~# '^\%(w\|width\|min\)=\d\+$'
         let l:min_width = str2nr(matchstr(tok, '\d\+'))
+        let l:explicit_width = l:min_width
       elseif tok =~# '^\%(s\|screen\|page\)=\d\+$'
         let l:screenw = str2nr(matchstr(tok, '\d\+'))
       elseif tok =~# '^@\d\+$'
@@ -37,9 +36,91 @@ function! textdecor#box#Selection(first, last, qargs) range
   let l:raw   = getline(a:first, a:last)
   let l:lines = map(copy(l:raw), "substitute(v:val, '\\s\\+$', '', '')")
 
-  " Measure content width (tabs/multibyte aware)
-  let l:maxw  = max(map(copy(l:lines), 'strdisplaywidth(v:val)'))
-  let l:width = max([l:maxw, l:min_width])
+  " Measure original content width
+  let l:maxw_orig = max(map(copy(l:lines), 'strdisplaywidth(v:val)'))
+
+  " Decide target content width (inside the box, excluding side padding)
+  " - explicit width: honor it
+  " - else if screen cap and content would overflow: cap to screen
+  " - else: old behavior (no wrapping): grow to longest line
+  if l:explicit_width > 0
+    let l:width = max([l:explicit_width, 1])
+    let l:do_wrap = 1
+  elseif l:screenw > 0 && (l:maxw_orig + 4) > l:screenw
+    " 4 = 2 side spaces + 2 borders (approx; borders are 2 chars)
+    let l:width = max([l:screenw - 4, 1])
+    let l:do_wrap = 1
+  else
+    let l:width = max([l:maxw_orig, l:min_width])
+    let l:do_wrap = 0
+  endif
+
+  " Word-wrap helper (soft wrap at spaces; hard-break very long words)
+  function! s:Wrap(line, width) abort
+    if a:width <= 0 | return [a:line] | endif
+    let words = split(a:line, '\s\+')
+    if empty(words) | return [''] | endif
+
+    let out = []
+    let cur = ''
+    for w in words
+      let wlen = strdisplaywidth(w)
+      if cur ==# ''
+        " start a new line; if word longer than width, hard-break it
+        if wlen <= a:width
+          let cur = w
+        else
+          let start = 0
+          while start < strlen(w)
+            " slice by bytes; display width approximation is acceptable for long tokens
+            let chunk = strpart(w, start, a:width)
+            call add(out, chunk)
+            let start += strlen(chunk)
+          endwhile
+          let cur = ''
+        endif
+      else
+        let newlen = strdisplaywidth(cur) + 1 + wlen
+        if newlen <= a:width
+          let cur .= ' ' . w
+        else
+          call add(out, cur)
+          if wlen <= a:width
+            let cur = w
+          else
+            let start = 0
+            while start < strlen(w)
+              let chunk = strpart(w, start, a:width)
+              call add(out, chunk)
+              let start += strlen(chunk)
+            endwhile
+            let cur = ''
+          endif
+        endif
+      endif
+    endfor
+    if cur !=# '' | call add(out, cur) | endif
+    return out
+  endfunction
+
+  " If wrapping, expand logical lines into wrapped lines
+  if l:do_wrap
+    let l:wrapped = []
+    for L in l:lines
+      let parts = s:Wrap(L, l:width)
+      if empty(parts)
+        call add(l:wrapped, '')
+      else
+        call extend(l:wrapped, parts)
+      endif
+    endfor
+    let l:lines = l:wrapped
+    " After wrapping, recompute max visible width (should be <= l:width)
+    let l:maxw  = max(map(copy(l:lines), 'strdisplaywidth(v:val)'))
+    let l:width = max([l:maxw, l:width])   " keep at least the chosen width
+  else
+    let l:maxw  = l:maxw_orig
+  endif
 
   " Styles (compact strings → split to chars)
   let l:styles = {
@@ -112,4 +193,3 @@ function! textdecor#box#Selection(first, last, qargs) range
     call append(a:first + l:sel_len - 1, l:boxed[l:sel_len :])
   endif
 endfunction
-
