@@ -202,13 +202,9 @@ function! textdecor#box#Unbox(first, last) range abort
   if empty(raw) | return | endif
 
   " 1) Remove top & bottom borders (ASCII + Unicode)
-  let hz    = '─═-'          " horizontal run chars
-  let tl    = '┌╔+'
-  let tr    = '┐╗+'
-  let bl    = '└╚+'
-  let br    = '┘╝+'
-  let top_pat    = '^\s*['.tl.']['.hz.']\+['.tr.']\s*$'
-  let bottom_pat = '^\s*['.bl.']['.hz.']\+['.br.']\s*$'
+  let hz         = '─═-'
+  let top_pat    = '^\s*['.'┌╔+'.']['.hz.']\+['.'┐╗+'.']\s*$'
+  let bottom_pat = '^\s*['.'└╚+'.']['.hz.']\+['.'┘╝+'.']\s*$'
 
   let start = 0
   let endi  = len(raw) - 1
@@ -217,58 +213,60 @@ function! textdecor#box#Unbox(first, last) range abort
 
   let body = start <= endi ? raw[start : endi] : []
   if empty(body)
-    " Replace selection with nothing
     call setline(a:first, [])
     if a:first <= a:last | call deletebufline('', a:first, a:last) | endif
     return
   endif
 
-  " 2) Remove vertical borders (│ ║ |) with any left margin and any inner padding
-  let sides = '│║|'          " vertical side chars
-  let side_pat = '^\s*['.sides.']\s*\(.*\)\s*['.sides.']\s*$'
+  " 2) Strip vertical borders with any left margin & inner padding (non-greedy)
+  "    sides: │ ║ |
+  let side_pat = '^\s*['.'│║|'.']\s*\(.\{-}\)\s*['.'│║|'.']\s*$'
 
-  let stripped = []
+  let inner = []
   for v in body
     if v =~# side_pat
-      " Capture interior; if just spaces, make it empty
-      let inner = substitute(v, side_pat, '\1', '')
-      if inner =~# '^\s*$'
-        call add(stripped, '')
-      else
-        call add(stripped, inner)
-      endif
+      let line = substitute(v, side_pat, '\1', '')
     else
-      " If no side borders matched, keep line as-is (for resilience)
-      call add(stripped, v)
+      let line = v
+    endif
+    " 3) Trim only non-blank lines
+    if line =~# '^\s*$'
+      call add(inner, '')
+    else
+      " use trim() if available, else fallback
+      if exists('*trim')
+        call add(inner, trim(line))
+      else
+        call add(inner, substitute(line, '^\s\+|\s\+$', '', 'g'))
+      endif
     endif
   endfor
 
-  " 3) Trim non-blank lines (left/right)
-  for i in range(0, len(stripped)-1)
-    if stripped[i] !~# '^\s*$'
-      let stripped[i] = substitute(stripped[i], '^\s\+|\s\+$', '', 'g')
-    endif
-  endfor
-
-  " 4) Join consecutive non-blank lines; 5) Keep blank/empty lines
+  " 4) Join consecutive non-blank lines into paragraphs
+  " 5) Preserve blank lines
   let out = []
   let acc = []
-  for L in stripped
+  for L in inner
     if L ==# ''
       if !empty(acc)
-        call add(out, join(acc, ' '))
+        " collapse internal runs of spaces after joining
+        let para = join(acc, ' ')
+        let para = substitute(para, '\s\{2,}', ' ', 'g')
+        call add(out, para)
         let acc = []
       endif
-      call add(out, '')   " preserve blank line
+      call add(out, '')
     else
       call add(acc, L)
     endif
   endfor
   if !empty(acc)
-    call add(out, join(acc, ' '))
+    let para = join(acc, ' ')
+    let para = substitute(para, '\s\{2,}', ' ', 'g')
+    call add(out, para)
   endif
 
-  " Safe replace into buffer
+  " Replace selection safely
   let sel_len = a:last - a:first + 1
   if len(out) <= sel_len
     call setline(a:first, out)
