@@ -201,46 +201,65 @@ function! textdecor#box#Unbox(first, last) range abort
   let raw = getline(a:first, a:last)
   if empty(raw) | return | endif
 
-  " ---- 1) Remove top & bottom borders
-  let top_pat    = '^\s*\%(┌\%([─]\+\)┐\|╔\%([═]\+\)╗\|+\%(-\+\)+\)\s*$'
-  let bottom_pat = '^\s*\%(└\%([─]\+\)┘\|╚\%([═]\+\)╝\|+\%(-\+\)+\)\s*$'
+  " 1) Remove top & bottom borders (ASCII + Unicode)
+  let hz    = '─═-'          " horizontal run chars
+  let tl    = '┌╔+'
+  let tr    = '┐╗+'
+  let bl    = '└╚+'
+  let br    = '┘╝+'
+  let top_pat    = '^\s*['.tl.']['.hz.']\+['.tr.']\s*$'
+  let bottom_pat = '^\s*['.bl.']['.hz.']\+['.br.']\s*$'
 
   let start = 0
   let endi  = len(raw) - 1
-  if raw[0] =~# top_pat    | let start += 1 | endif
+  if raw[0]  =~# top_pat    | let start += 1 | endif
   if raw[-1] =~# bottom_pat | let endi  -= 1 | endif
 
   let body = start <= endi ? raw[start : endi] : []
   if empty(body)
+    " Replace selection with nothing
     call setline(a:first, [])
     if a:first <= a:last | call deletebufline('', a:first, a:last) | endif
     return
   endif
 
-  " ---- 2) Remove vertical borders and margin
-  let side_pat = '^\s*[\|│║]\s?\(.*\)\s*[\|│║]\s*$'
+  " 2) Remove vertical borders (│ ║ |) with any left margin and any inner padding
+  let sides = '│║|'          " vertical side chars
+  let side_pat = '^\s*['.sides.']\s*\(.*\)\s*['.sides.']\s*$'
+
   let stripped = []
   for v in body
     if v =~# side_pat
-      call add(stripped, substitute(v, side_pat, '\1', ''))
+      " Capture interior; if just spaces, make it empty
+      let inner = substitute(v, side_pat, '\1', '')
+      if inner =~# '^\s*$'
+        call add(stripped, '')
+      else
+        call add(stripped, inner)
+      endif
     else
+      " If no side borders matched, keep line as-is (for resilience)
       call add(stripped, v)
     endif
   endfor
 
-  " ---- 3) Trim non-blank lines
-  let trimmed = map(stripped, {_,v -> v =~# '^\s*$' ? '' : substitute(v, '^\s\+|\s\+$', '', 'g')})
+  " 3) Trim non-blank lines (left/right)
+  for i in range(0, len(stripped)-1)
+    if stripped[i] !~# '^\s*$'
+      let stripped[i] = substitute(stripped[i], '^\s\+|\s\+$', '', 'g')
+    endif
+  endfor
 
-  " ---- 4) Join consecutive non-blank lines, 5) keep blanks
+  " 4) Join consecutive non-blank lines; 5) Keep blank/empty lines
   let out = []
   let acc = []
-  for L in trimmed
+  for L in stripped
     if L ==# ''
       if !empty(acc)
         call add(out, join(acc, ' '))
         let acc = []
       endif
-      call add(out, '')
+      call add(out, '')   " preserve blank line
     else
       call add(acc, L)
     endif
@@ -249,7 +268,7 @@ function! textdecor#box#Unbox(first, last) range abort
     call add(out, join(acc, ' '))
   endif
 
-  " ---- Replace safely
+  " Safe replace into buffer
   let sel_len = a:last - a:first + 1
   if len(out) <= sel_len
     call setline(a:first, out)
