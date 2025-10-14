@@ -281,6 +281,7 @@ endfunction
 
 
 
+" autoload/textdecor/box.vim
 function! textdecor#box#UnboxAuto() abort
   " Regex for our three styles (ASCII + Unicode thin/thick)
   let hz         = '─═-'
@@ -322,18 +323,6 @@ function! textdecor#box#UnboxAuto() abort
   " 3) Unbox exactly that range
   call textdecor#box#Unbox(top, bot)
 endfunction
-
-
-function! textdecor#box#UnboxVip() abort
-  let view = winsaveview()
-  silent! normal! vip
-  let l1 = getpos("'<")[1]
-  let l2 = getpos("'>")[1]
-  call winrestview(view)
-  return textdecor#box#Unbox(l1, l2)
-endfunction
-
-
 
 
 

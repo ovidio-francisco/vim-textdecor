@@ -9,6 +9,4 @@ let g:loaded_textdecor_box = 1
 command! -range -nargs=? Box <line1>,<line2>call textdecor#box#Selection(<line1>, <line2>, <q-args>)
 
 
-" command! -nargs=0 Unbox call textdecor#box#UnboxAuto()
-" plugin/textdecor_box.vim
-command! -nargs=0 Unbox call textdecor#box#UnboxVip()
+command! -nargs=0 Unbox call textdecor#box#UnboxAuto()
