@@ -281,17 +281,4 @@ endfunction
 
 
 
-function! textdecor#box#UnboxAuto() abort
-  let view = winsaveview()
-  let line = getline('.')
-  if line !~# '[│║┌╔┐╗└╚┘╝]' && line('.') < line('$')
-    normal! j
-  endif
 
-  silent! normal! vip
-  let l1 = getpos("'<")[1]
-  let l2 = getpos("'>")[1]
-  call winrestview(view)
-
-  call textdecor#box#Unbox(l1, l2)
-endfunction
