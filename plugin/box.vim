@@ -8,3 +8,7 @@ let g:loaded_textdecor_box = 1
 " outer align: outer=left|center|right OR oleft|ocenter|oright
 command! -range -nargs=? Box <line1>,<line2>call textdecor#box#Selection(<line1>, <line2>, <q-args>)
 
+
+" plugin/textdecor_box.vim (append this near :Box)
+command! -range -nargs=0 Unbox <line1>,<line2>call textdecor#box#Unbox(<line1>, <line2>)
+

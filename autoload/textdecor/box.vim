@@ -193,3 +193,78 @@ function! textdecor#box#Selection(first, last, qargs) range
     call append(a:first + l:sel_len - 1, l:boxed[l:sel_len :])
   endif
 endfunction
+
+
+
+
+function! textdecor#box#Unbox(first, last) range abort
+  " Get selection
+  let raw = getline(a:first, a:last)
+  if empty(raw) | return | endif
+
+  " ---- 1) Remove top & bottom borders (supports ┌─┐/└─┘, ╔═╗/╚═╝, +-+/+-+)
+  let is_top    = {-> raw[0] =~# '^\s*\%(┌\%([─]\+\)┐\|╔\%([═]\+\)╗\|+\%(-\+\)+\)\s*$'}
+  let is_bottom = {-> raw[-1] =~# '^\s*\%(└\%([─]\+\)┘\|╚\%([═]\+\)╝\|+\%(-\+\)+\)\s*$'}
+
+  let start = 0
+  let endi  = len(raw) - 1
+  if is_top()    | let start += 1 | endif
+  if is_bottom() | let endi  -= 1 | endif
+
+  let body = start <= endi ? raw[start : endi] : []
+
+  " Early exit if nothing left
+  if empty(body)
+    " Replace with empty selection
+    call setline(a:first, [])
+    if a:first <= a:last | call deletebufline('', a:first, a:last) | endif
+    return
+  endif
+
+  " ---- 2) Remove vertical borders (│ │ / ║ ║ / | |) and surrounding spaces
+  " Accept optional left margin (outer alignment)
+  let side_pat = '^\s*[\|│║]\s?(.*?)(?:\s*)[\|│║]\s*$'
+
+  let stripped = map(copy(body), {_,v -> v =~# side_pat ? matchstr(v, side_pat, 0, 1) : v})
+
+  " ---- 3) Trim non-blank lines (both sides)
+  let trimmed = map(stripped, {_,v -> v =~# '^\s*$' ? '' : substitute(v, '^\s\+|\s\+$', '', 'g')})
+
+  " ---- 4) Join consecutive non-blank lines, 5) Keep blank/empty lines
+  " We treat blank lines as paragraph separators.
+  let out = []
+  let acc = []
+  for L in trimmed
+    if L ==# ''
+      if !empty(acc)
+        call add(out, join(acc, ' '))
+        let acc = []
+      endif
+      call add(out, '')   " preserve blank line
+    else
+      call add(acc, L)
+    endif
+  endfor
+  if !empty(acc)
+    call add(out, join(acc, ' '))
+  endif
+
+  " Avoid trailing extra blank if original ended with one top/bottom only
+  " (not strictly necessary, but keeps things tidy)
+  " -- no-op by default --
+
+  " Replace selection safely
+  let sel_len = a:last - a:first + 1
+  if len(out) <= sel_len
+    call setline(a:first, out)
+    if sel_len > len(out)
+      call deletebufline('', a:first + len(out), a:last)
+    endif
+  else
+    call setline(a:first, out[0 : sel_len - 1])
+    call append(a:first + sel_len - 1, out[sel_len :])
+  endif
+endfunction
+
+
+
