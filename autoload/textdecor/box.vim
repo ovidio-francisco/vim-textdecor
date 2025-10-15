@@ -327,31 +327,21 @@ endfunction
 
 
 " Invoke: if no qargs, run wizard; else pass through
+" autoload/textdecor/box.vim
 function! textdecor#box#Invoke(first, last, qargs, has_range) range abort
-  if a:qargs ==# ''
+  let qargs = a:qargs
+  if qargs ==# ''
     let spec = textdecor#box#Wizard()
-    if empty(spec)
-      " user cancelled
-      return
-    endif
+    if empty(spec) | return | endif
     let qargs = spec
-  else
-    let qargs = a:qargs
   endif
 
-  " If no range was supplied, be helpful: select paragraph (vip)
-  if !a:has_range
-    let view = winsaveview()
-    silent! normal! vip
-    let l1 = getpos("'<")[1]
-    let l2 = getpos("'>")[1]
-    call winrestview(view)
+  if a:has_range
+    let [l1, l2] = [a:first, a:last]
   else
-    let l1 = a:first
-    let l2 = a:last
+    let [l1, l2] = textdecor#box#ParagraphRange()
   endif
 
-  " Call your existing box function (rename Selection→Box if you did that)
   return textdecor#box#Box(l1, l2, qargs)
 endfunction
 
@@ -423,6 +413,24 @@ function! textdecor#box#Wizard() abort
 
   return join(parts, ' ')
 endfunction
+
+
+
+" Returns [l1, l2] for the blank-line-delimited paragraph under the cursor.
+function! textdecor#box#ParagraphRange() abort
+  let l1 = line('.')
+  while l1 > 1 && getline(l1 - 1) !~# '^\s*$'
+    let l1 -= 1
+  endwhile
+
+  let l2 = line('.')
+  let last = line('$')
+  while l2 < last && getline(l2 + 1) !~# '^\s*$'
+    let l2 += 1
+  endwhile
+  return [l1, l2]
+endfunction
+
 
 
 
