@@ -325,3 +325,104 @@ endfunction
 
 
 
+
+" Invoke: if no qargs, run wizard; else pass through
+function! textdecor#box#Invoke(first, last, qargs, has_range) range abort
+  if a:qargs ==# ''
+    let spec = textdecor#box#Wizard()
+    if empty(spec)
+      " user cancelled
+      return
+    endif
+    let qargs = spec
+  else
+    let qargs = a:qargs
+  endif
+
+  " If no range was supplied, be helpful: select paragraph (vip)
+  if !a:has_range
+    let view = winsaveview()
+    silent! normal! vip
+    let l1 = getpos("'<")[1]
+    let l2 = getpos("'>")[1]
+    call winrestview(view)
+  else
+    let l1 = a:first
+    let l2 = a:last
+  endif
+
+  " Call your existing box function (rename Selection→Box if you did that)
+  return textdecor#box#Box(l1, l2, qargs)
+endfunction
+
+" Wizard: ask for parameters, return a single qargs string compatible with parser
+function! textdecor#box#Wizard() abort
+  " Defaults (match your current defaults)
+  let style_default  = get(g:, 'textdecor_box_style_default', '-')
+  let width_default  = get(g:, 'textdecor_box_minwidth_default', 40)
+  let align_default  = get(g:, 'textdecor_box_align_default', 'center')
+  let outer_default  = get(g:, 'textdecor_box_outer_default', 'center')
+  let screen_default = get(g:, 'textdecor_box_screen_default', (&textwidth > 0 ? &textwidth : 80))
+
+  " Prompts (empty = keep default)
+  let style  = input('Style [-/=/+] ['.style_default.']: ')
+  let width  = input('Box width ['.width_default.']: ')
+  let align  = input('Text align [left/right/center/cblock] ['.align_default.']: ')
+  let outer  = input('Box align [left/center/right/none] ['.outer_default.']: ')
+  let screen = input('Screen width (number or @NN) ['.screen_default.']: ')
+
+  " Apply defaults if empty
+  let style  = (style ==# ''  ? style_default  : style)
+  let width  = (width ==# ''  ? width_default  : width)
+  let align  = (align ==# ''  ? align_default  : align)
+  let outer  = (outer ==# ''  ? outer_default  : outer)
+  let screen = (screen ==# '' ? screen_default : screen)
+
+  " Tiny fixes/validation
+  let style = index(['-','=','+'], style) >= 0 ? style : '-'
+  let align = tolower(align)
+  if index(['left','right','center','centerblock','cblock','c1','c2'], align) < 0
+    let align = 'center'
+  endif
+  let outer = tolower(outer)
+  if index(['left','center','right','none','oleft','ocenter','oright'], outer) < 0
+    let outer = 'center'
+  endif
+
+  " width: accept plain number → use as min/width
+  if screen =~# '^@\d\+$'
+    " ok as-is
+  elseif screen =~# '^\d\+$'
+    " allow numeric screen too
+  else
+    " fallback to default number
+    let screen = screen_default
+  endif
+
+  if width !~# '^\d\+$'
+    let width = width_default
+  endif
+
+  " Build qargs string compatible with your parser:
+  " tokens can be: style, width/min=NN, align, outer=..., screen=NN or @NN
+  let parts = []
+  call add(parts, style)
+  call add(parts, width . '')           " number
+  call add(parts, align)
+  if outer !=# 'none'
+    call add(parts, 'outer=' . (outer =~# '^o' ? outer[1:] : outer))
+  else
+    " keep as none by omitting
+  endif
+  " screen can be numeric or @NN
+  if type(screen) == v:t_string && screen =~# '^@'
+    call add(parts, screen)
+  else
+    call add(parts, 'screen=' . screen)
+  endif
+
+  return join(parts, ' ')
+endfunction
+
+
+
