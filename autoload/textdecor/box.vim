@@ -283,8 +283,29 @@ endfunction
 
 " autoload/textdecor/box.vim
 function! textdecor#box#UnboxAuto() abort
-  let [l1, l2] = textdecor#box#ParagraphRange()
-  return textdecor#box#Unbox(l1, l2)
+  let view = winsaveview()
+
+  " 1) Grab the paragraph quickly
+  silent! keepjumps normal! vip
+  let l1 = getpos("'<")[1]
+  let l2 = getpos("'>")[1]
+
+  " 2) If borders are immediately outside, include them
+  "    (supports ASCII '+-+', Unicode thin '┌─┐/└─┘', thick '╔═╗/╚═╝')
+  let top_pat    = '^\s*[┌╔+][─═-]\+[┐╗+]\s*$'
+  let bottom_pat = '^\s*[└╚+][─═-]\+[┘╝+]\s*$'
+
+  if l1 > 1 && getline(l1 - 1) =~# top_pat
+    let l1 -= 1
+  endif
+  if l2 < line('$') && getline(l2 + 1) =~# bottom_pat
+    let l2 += 1
+  endif
+
+  call winrestview(view)
+
+  " 3) Hand off to your existing Unbox
+  call textdecor#box#Unbox(l1, l2)
 endfunction
 
 
