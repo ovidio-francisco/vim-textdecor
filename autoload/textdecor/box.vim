@@ -281,7 +281,6 @@ endfunction
 
 
 
-" autoload/textdecor/box.vim
 function! textdecor#box#UnboxAuto() abort
   " Regex for our three styles (ASCII + Unicode thin/thick)
   let hz         = '─═-'
