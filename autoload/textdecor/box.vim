@@ -281,46 +281,10 @@ endfunction
 
 
 
+" autoload/textdecor/box.vim
 function! textdecor#box#UnboxAuto() abort
-  " Regex for our three styles (ASCII + Unicode thin/thick)
-  let hz         = '─═-'
-  let top_pat    = '^\s*['.'┌╔+'.']['.hz.']\+['.'┐╗+'.']\s*$'
-  let bottom_pat = '^\s*['.'└╚+'.']['.hz.']\+['.'┘╝+'.']\s*$'
-
-  " 1) Find the nearest top border at/above the cursor
-  let lnum = line('.')
-  let top  = 0
-  while lnum >= 1
-    let L = getline(lnum)
-    if L =~# top_pat
-      let top = lnum
-      break
-    endif
-    let lnum -= 1
-  endwhile
-  if top == 0
-    echohl WarningMsg | echom 'Unbox: no top border found above cursor.' | echohl None
-    return
-  endif
-
-  " 2) From the top border, find the bottom border below
-  let cur = top + 1
-  let bot = 0
-  while cur <= line('$')
-    let L = getline(cur)
-    if L =~# bottom_pat
-      let bot = cur
-      break
-    endif
-    let cur += 1
-  endwhile
-  if bot == 0
-    echohl WarningMsg | echom 'Unbox: no bottom border found below top.' | echohl None
-    return
-  endif
-
-  " 3) Unbox exactly that range
-  call textdecor#box#Unbox(top, bot)
+  let [l1, l2] = textdecor#box#ParagraphRange()
+  return textdecor#box#Unbox(l1, l2)
 endfunction
 
 
