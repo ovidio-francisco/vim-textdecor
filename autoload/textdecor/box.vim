@@ -327,7 +327,6 @@ endfunction
 
 
 " Invoke: if no qargs, run wizard; else pass through
-" autoload/textdecor/box.vim
 function! textdecor#box#Invoke(first, last, qargs, has_range) range abort
   let qargs = a:qargs
   if qargs ==# ''
