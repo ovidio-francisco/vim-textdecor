@@ -7,7 +7,3 @@ command! -range -nargs=* Box <line1>,<line2>call textdecor#box#Invoke(<line1>, <
 command! -nargs=0 Unbox call textdecor#box#UnboxAuto()
 
 
-" :Box [style] [minwidth or width=NN] [inner align] [outer align] [screen=NN or @NN]
-" style: '-', '=', '+'
-" inner align: left | right | center | centerblock(cblock|c1|c2)
-" outer align: outer=left|center|right OR oleft|ocenter|oright
