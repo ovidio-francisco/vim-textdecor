@@ -1,4 +1,4 @@
-function! textdecor#box#Selection(first, last, qargs) range
+function! textdecor#box#Box(first, last, qargs) range
   " Defaults
   let l:style_key = '-'
   let l:min_width = 20

@@ -6,7 +6,7 @@ let g:loaded_textdecor_box = 1
 " style: '-', '=', '+'
 " inner align: left | right | center | centerblock(cblock|c1|c2)
 " outer align: outer=left|center|right OR oleft|ocenter|oright
-command! -range -nargs=? Box <line1>,<line2>call textdecor#box#Selection(<line1>, <line2>, <q-args>)
+command! -range -nargs=? Box <line1>,<line2>call textdecor#box#Box(<line1>, <line2>, <q-args>)
 
 
 command! -nargs=0 Unbox call textdecor#box#UnboxAuto()
