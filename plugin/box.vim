@@ -9,6 +9,7 @@ let g:loaded_textdecor_box = 1
 command! -range -nargs=* Box <line1>,<line2>call textdecor#box#Invoke(<line1>, <line2>, <q-args>, <range>)
 
 
+command! -nargs=0 Unbox call textdecor#box#UnboxAuto()
 
 
 " :Box [style] [minwidth or width=NN] [inner align] [outer align] [screen=NN or @NN]
