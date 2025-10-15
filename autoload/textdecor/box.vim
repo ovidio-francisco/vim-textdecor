@@ -281,31 +281,46 @@ endfunction
 
 
 
-" autoload/textdecor/box.vim
 function! textdecor#box#UnboxAuto() abort
-  let view = winsaveview()
+  " Regex for our three styles (ASCII + Unicode thin/thick)
+  let hz         = '─═-'
+  let top_pat    = '^\s*['.'┌╔+'.']['.hz.']\+['.'┐╗+'.']\s*$'
+  let bottom_pat = '^\s*['.'└╚+'.']['.hz.']\+['.'┘╝+'.']\s*$'
 
-  " 1) Grab the paragraph quickly
-  silent! keepjumps normal! vip
-  let l1 = getpos("'<")[1]
-  let l2 = getpos("'>")[1]
-
-  " 2) If borders are immediately outside, include them
-  "    (supports ASCII '+-+', Unicode thin '┌─┐/└─┘', thick '╔═╗/╚═╝')
-  let top_pat    = '^\s*[┌╔+][─═-]\+[┐╗+]\s*$'
-  let bottom_pat = '^\s*[└╚+][─═-]\+[┘╝+]\s*$'
-
-  if l1 > 1 && getline(l1 - 1) =~# top_pat
-    let l1 -= 1
+  " 1) Find the nearest top border at/above the cursor
+  let lnum = line('.')
+  let top  = 0
+  while lnum >= 1
+    let L = getline(lnum)
+    if L =~# top_pat
+      let top = lnum
+      break
+    endif
+    let lnum -= 1
+  endwhile
+  if top == 0
+    echohl WarningMsg | echom 'Unbox: no top border found above cursor.' | echohl None
+    return
   endif
-  if l2 < line('$') && getline(l2 + 1) =~# bottom_pat
-    let l2 += 1
+
+  " 2) From the top border, find the bottom border below
+  let cur = top + 1
+  let bot = 0
+  while cur <= line('$')
+    let L = getline(cur)
+    if L =~# bottom_pat
+      let bot = cur
+      break
+    endif
+    let cur += 1
+  endwhile
+  if bot == 0
+    echohl WarningMsg | echom 'Unbox: no bottom border found below top.' | echohl None
+    return
   endif
 
-  call winrestview(view)
-
-  " 3) Hand off to your existing Unbox
-  call textdecor#box#Unbox(l1, l2)
+  " 3) Unbox exactly that range
+  call textdecor#box#Unbox(top, bot)
 endfunction
 
 
