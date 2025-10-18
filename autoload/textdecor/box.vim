@@ -36,6 +36,63 @@ function! textdecor#box#Box(first, last, qargs) range
   let l:raw   = getline(a:first, a:last)
   let l:lines = map(copy(l:raw), "substitute(v:val, '\\s\\+$', '', '')")
 
+
+
+
+  " ===================== BORDERLESS STYLE =====================
+  if l:style_key ==# 'n'
+    " 1) Trim non-blank lines
+    let l:trimmed = []
+    for v in l:lines
+      if v =~# '^\s*$'
+        call add(l:trimmed, '')
+      else
+        if exists('*trim')
+          call add(l:trimmed, trim(v))
+        else
+          call add(l:trimmed, substitute(v, '^\s\+|\s\+$', '', 'g'))
+        endif
+      endif
+    endfor
+    " 2) Join consecutive non-blank lines; 3) keep blank lines
+    let l:out = []
+    let l:acc = []
+    for L in l:trimmed
+      if L ==# ''
+        if !empty(l:acc)
+          let l:para = join(l:acc, ' ')
+          let l:para = substitute(l:para, '\s\{2,}', ' ', 'g')
+          call add(l:out, l:para)
+          let l:acc = []
+        endif
+        call add(l:out, '')
+      else
+        call add(l:acc, L)
+      endif
+    endfor
+    if !empty(l:acc)
+      let l:para = join(l:acc, ' ')
+      let l:para = substitute(l:para, '\s\{2,}', ' ', 'g')
+      call add(l:out, l:para)
+    endif
+
+    " Replace selection safely (same logic you already use)
+    let l:sel_len = a:last - a:first + 1
+    if len(l:out) <= l:sel_len
+      call setline(a:first, l:out)
+      if l:sel_len > len(l:out)
+        call deletebufline('', a:first + len(l:out), a:last)
+      endif
+    else
+      call setline(a:first, l:out[0 : l:sel_len - 1])
+      call append(a:first + l:sel_len - 1, l:out[l:sel_len :])
+    endif
+    return
+  endif
+  " =================== END BORDERLESS STYLE ===================
+
+
+
   " Measure original content width
   let l:maxw_orig = max(map(copy(l:lines), 'strdisplaywidth(v:val)'))
 
@@ -356,8 +413,8 @@ function! textdecor#box#Wizard() abort
   " Prompts (Enter = default)
   let style  = input('Style [-/=/+] ['.style_default.']: ')
   let width  = input('Box width ['.width_default.']: ')
-  let align  = input('Text align ([l]eft/[r]ight/[c]enter/[cb]lock) ['.align_default.']: ')
-  let outer  = input('Box align [l/c/r/n] (left/center/right/none) ['.outer_default.']: ')
+  let align  = input('Text align (left/right/center/cblock) [l/r/c/b] ['.align_default.']: ')
+  let outer  = input('Box align (left/right/center/none) [l/r/c/n] ['.outer_default.']: ')
   let screen = input('Screen width (number or @NN) ['.screen_default.']: ')
 
   " Apply defaults if empty
