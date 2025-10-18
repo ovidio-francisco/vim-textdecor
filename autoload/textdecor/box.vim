@@ -1,23 +1,27 @@
 function! textdecor#box#Box(first, last, qargs) range
   " Defaults
-  let l:style_key = '-'
-  let l:min_width = 20
-  let l:align     = 'left'
-  let l:outer     = 'none'
-  let l:screenw   = (&textwidth > 0 ? &textwidth : 0)
+  let l:style_key      = '-'
+  let l:min_width      = 20
+  let l:align          = 'left'
+  let l:outer          = 'none'
+  let l:screenw        = (&textwidth > 0 ? &textwidth : 0)
+  let l:explicit_width = 0
+  let l:do_wrap        = 0
+  let l:width          = 0
 
-  " --- Parse <q-args> (now also accept n|none|plain) ---------------------
+  " --- Parse <q-args> (also accept n|none|plain) --------------------------
   if !empty(a:qargs)
     for tok in split(a:qargs)
-      if tok =~# '^\d\+$'
-        let l:min_width = str2nr(tok)
-      elseif tok =~# '^\%(w\|width\|min\)=\d\+$'
+      if tok =~# '^\%(w\|width\|min\)=\d\+$'
         let l:min_width = str2nr(matchstr(tok, '\d\+'))
+        let l:explicit_width = l:min_width
+      elseif tok =~# '^\d\+$'
+        let l:min_width = str2nr(tok)
+        let l:explicit_width = l:min_width
       elseif tok =~# '^\%(s\|screen\|page\)=\d\+$'
         let l:screenw = str2nr(matchstr(tok, '\d\+'))
       elseif tok =~# '^@\d\+$'
         let l:screenw = str2nr(tok[1:])
-      " NEW: styles '-', '=', '+', and borderless: n/none/plain
       elseif index(['-','+','='], tok) >= 0
         let l:style_key = tok
       elseif tolower(tok) =~# '^\%(n\|none\|plain\)$'
@@ -32,7 +36,7 @@ function! textdecor#box#Box(first, last, qargs) range
     endfor
   endif
 
-  " Grab lines, strip trailing spaces
+  " Get lines and rtrim trailing spaces (keep leading indent)
   let l:raw   = getline(a:first, a:last)
   let l:lines = map(copy(l:raw), "substitute(v:val, '\\s\\+$', '', '')")
 
@@ -51,7 +55,7 @@ function! textdecor#box#Box(first, last, qargs) range
         endif
       endif
     endfor
-    " 2) Join consecutive non-blank lines; 3) keep blank lines
+    " 2) Join consecutive non-blank lines; keep blank lines
     let l:out = []
     let l:acc = []
     for L in l:trimmed
@@ -73,7 +77,7 @@ function! textdecor#box#Box(first, last, qargs) range
       call add(l:out, l:para)
     endif
 
-    " Replace selection safely (same logic you already use)
+    " Replace safely
     let l:sel_len = a:last - a:first + 1
     if len(l:out) <= l:sel_len
       call setline(a:first, l:out)
@@ -88,45 +92,36 @@ function! textdecor#box#Box(first, last, qargs) range
   endif
   " =================== END BORDERLESS STYLE ===================
 
-
-
   " Measure original content width
   let l:maxw_orig = max(map(copy(l:lines), 'strdisplaywidth(v:val)'))
 
-  " Decide target content width (inside the box, excluding side padding)
-  " - explicit width: honor it
-  " - else if screen cap and content would overflow: cap to screen
-  " - else: old behavior (no wrapping): grow to longest line
+  " Decide target content width
   if l:explicit_width > 0
-    let l:width = max([l:explicit_width, 1])
+    let l:width   = max([l:explicit_width, 1])
     let l:do_wrap = 1
   elseif l:screenw > 0 && (l:maxw_orig + 4) > l:screenw
-    " 4 = 2 side spaces + 2 borders (approx; borders are 2 chars)
-    let l:width = max([l:screenw - 4, 1])
+    " 4 = 2 inner spaces + 2 borders
+    let l:width   = max([l:screenw - 4, 1])
     let l:do_wrap = 1
   else
-    let l:width = max([l:maxw_orig, l:min_width])
+    let l:width   = max([l:maxw_orig, l:min_width])
     let l:do_wrap = 0
   endif
 
-  " Word-wrap helper (soft wrap at spaces; hard-break very long words)
+  " Word-wrap helper
   function! s:Wrap(line, width) abort
     if a:width <= 0 | return [a:line] | endif
     let words = split(a:line, '\s\+')
     if empty(words) | return [''] | endif
-
-    let out = []
-    let cur = ''
+    let out = [] | let cur = ''
     for w in words
       let wlen = strdisplaywidth(w)
       if cur ==# ''
-        " start a new line; if word longer than width, hard-break it
         if wlen <= a:width
           let cur = w
         else
           let start = 0
           while start < strlen(w)
-            " slice by bytes; display width approximation is acceptable for long tokens
             let chunk = strpart(w, start, a:width)
             call add(out, chunk)
             let start += strlen(chunk)
@@ -157,26 +152,20 @@ function! textdecor#box#Box(first, last, qargs) range
     return out
   endfunction
 
-  " If wrapping, expand logical lines into wrapped lines
+  " Apply wrapping if needed
   if l:do_wrap
     let l:wrapped = []
     for L in l:lines
-      let parts = s:Wrap(L, l:width)
-      if empty(parts)
-        call add(l:wrapped, '')
-      else
-        call extend(l:wrapped, parts)
-      endif
+      call extend(l:wrapped, s:Wrap(L, l:width))
     endfor
     let l:lines = l:wrapped
-    " After wrapping, recompute max visible width (should be <= l:width)
     let l:maxw  = max(map(copy(l:lines), 'strdisplaywidth(v:val)'))
-    let l:width = max([l:maxw, l:width])   " keep at least the chosen width
+    let l:width = max([l:maxw, l:width])
   else
     let l:maxw  = l:maxw_orig
   endif
 
-  " Styles (compact strings → split to chars)
+  " Styles
   let l:styles = {
         \ '-': {'top': '┌─┐', 'vert': '││', 'bottom': '└─┘'},
         \ '=': {'top': '╔═╗', 'vert': '║║', 'bottom': '╚═╝'},
@@ -190,7 +179,7 @@ function! textdecor#box#Box(first, last, qargs) range
   let l:top    = l:tl . repeat(l:hz, l:width + 2) . l:tr
   let l:bottom = l:bl . repeat(l:hz, l:width + 2) . l:br
 
-  " Inner alignment helpers
+  " Inner alignment
   let l:block_left = float2nr((l:width - l:maxw) / 2)
   function! s:Align(line, width, align, block_left)
     let l:w = strdisplaywidth(a:line)
@@ -220,7 +209,7 @@ function! textdecor#box#Box(first, last, qargs) range
   endfor
   call add(l:boxed, l:bottom)
 
-  " Outer (box) alignment against screen width
+  " Outer alignment against screen width
   if l:outer !=# 'none' && l:screenw > 0
     let l:boxw = strdisplaywidth(l:boxed[0])
     let l:ml = 0
@@ -234,7 +223,7 @@ function! textdecor#box#Box(first, last, qargs) range
     let l:boxed  = map(l:boxed, 'l:margin . v:val')
   endif
 
-  " Safe replace (no eating following lines)
+  " Safe replace
   let l:sel_len = a:last - a:first + 1
   let l:box_len = len(l:boxed)
   if l:box_len <= l:sel_len
@@ -408,7 +397,7 @@ function! textdecor#box#Wizard() abort
   let screen_default = get(g:, 'textdecor_box_screen_default', (&textwidth > 0 ? &textwidth : 80))
 
   " Prompts (Enter = default)
-  let style  = input('Style [-/=/+] ['.style_default.']: ')
+  let style  = input('Style [-/=/+/n (none)] ['.style_default.']: ')
   let width  = input('Box width ['.width_default.']: ')
   let align  = input('Text align (left/right/center/cblock) [l/r/c/b] ['.align_default.']: ')
   let outer  = input('Box align (left/right/center/none) [l/r/c/n] ['.outer_default.']: ')
