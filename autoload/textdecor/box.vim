@@ -36,71 +36,19 @@ function! textdecor#box#Box(first, last, qargs) range
     endfor
   endif
 
-  " Get lines and rtrim trailing spaces (keep leading indent)
+  " Read lines and rtrim (keep indent)
   let l:raw   = getline(a:first, a:last)
   let l:lines = map(copy(l:raw), "substitute(v:val, '\\s\\+$', '', '')")
 
-  " ===================== BORDERLESS STYLE =====================
-  if l:style_key ==# 'n'
-    " 1) Trim non-blank lines
-    let l:trimmed = []
-    for v in l:lines
-      if v =~# '^\s*$'
-        call add(l:trimmed, '')
-      else
-        if exists('*trim')
-          call add(l:trimmed, trim(v))
-        else
-          call add(l:trimmed, substitute(v, '^\s\+|\s\+$', '', 'g'))
-        endif
-      endif
-    endfor
-    " 2) Join consecutive non-blank lines; keep blank lines
-    let l:out = []
-    let l:acc = []
-    for L in l:trimmed
-      if L ==# ''
-        if !empty(l:acc)
-          let l:para = join(l:acc, ' ')
-          let l:para = substitute(l:para, '\s\{2,}', ' ', 'g')
-          call add(l:out, l:para)
-          let l:acc = []
-        endif
-        call add(l:out, '')
-      else
-        call add(l:acc, L)
-      endif
-    endfor
-    if !empty(l:acc)
-      let l:para = join(l:acc, ' ')
-      let l:para = substitute(l:para, '\s\{2,}', ' ', 'g')
-      call add(l:out, l:para)
-    endif
-
-    " Replace safely
-    let l:sel_len = a:last - a:first + 1
-    if len(l:out) <= l:sel_len
-      call setline(a:first, l:out)
-      if l:sel_len > len(l:out)
-        call deletebufline('', a:first + len(l:out), a:last)
-      endif
-    else
-      call setline(a:first, l:out[0 : l:sel_len - 1])
-      call append(a:first + l:sel_len - 1, l:out[l:sel_len :])
-    endif
-    return
-  endif
-  " =================== END BORDERLESS STYLE ===================
-
   " Measure original content width
-  let l:maxw_orig = max(map(copy(l:lines), 'strdisplaywidth(v:val)'))
+  let l:maxw_orig = empty(l:lines) ? 0 : max(map(copy(l:lines), 'strdisplaywidth(v:val)'))
 
-  " Decide target content width
+  " Decide target content width (inner width, excluding side padding)
   if l:explicit_width > 0
     let l:width   = max([l:explicit_width, 1])
     let l:do_wrap = 1
   elseif l:screenw > 0 && (l:maxw_orig + 4) > l:screenw
-    " 4 = 2 inner spaces + 2 borders
+    " 4 = 2 inner spaces + 2 border glyphs (approx)
     let l:width   = max([l:screenw - 4, 1])
     let l:do_wrap = 1
   else
@@ -159,27 +107,13 @@ function! textdecor#box#Box(first, last, qargs) range
       call extend(l:wrapped, s:Wrap(L, l:width))
     endfor
     let l:lines = l:wrapped
-    let l:maxw  = max(map(copy(l:lines), 'strdisplaywidth(v:val)'))
+    let l:maxw  = empty(l:lines) ? 0 : max(map(copy(l:lines), 'strdisplaywidth(v:val)'))
     let l:width = max([l:maxw, l:width])
   else
     let l:maxw  = l:maxw_orig
   endif
 
-  " Styles
-  let l:styles = {
-        \ '-': {'top': '┌─┐', 'vert': '││', 'bottom': '└─┘'},
-        \ '=': {'top': '╔═╗', 'vert': '║║', 'bottom': '╚═╝'},
-        \ '+': {'top': '+-+', 'vert': '||', 'bottom': '+-+'},
-        \ }
-  let l:style = has_key(l:styles, l:style_key) ? l:styles[l:style_key] : l:styles['-']
-  let [l:tl, l:hz, l:tr]  = split(l:style.top, '\zs')
-  let [l:bl, l:hz2, l:br] = split(l:style.bottom, '\zs')
-  let [l:vl, l:vr]        = split(l:style.vert, '\zs')
-
-  let l:top    = l:tl . repeat(l:hz, l:width + 2) . l:tr
-  let l:bottom = l:bl . repeat(l:hz, l:width + 2) . l:br
-
-  " Inner alignment
+  " Inner alignment helper
   let l:block_left = float2nr((l:width - l:maxw) / 2)
   function! s:Align(line, width, align, block_left)
     let l:w = strdisplaywidth(a:line)
@@ -201,16 +135,39 @@ function! textdecor#box#Box(first, last, qargs) range
     endif
   endfunction
 
-  " Build boxed lines (no outer margin yet)
-  let l:boxed = [l:top]
-  for l in l:lines
-    let l:aligned = s:Align(l, l:width, l:align, l:block_left)
-    call add(l:boxed, l:vl . ' ' . l:aligned . ' ' . l:vr)
+  " Build aligned content lines (no outer margin yet)
+  let l:content_lines = []
+  for L in l:lines
+    call add(l:content_lines, s:Align(L, l:width, l:align, l:block_left))
   endfor
-  call add(l:boxed, l:bottom)
 
-  " Outer alignment against screen width
-  if l:outer !=# 'none' && l:screenw > 0
+  " ---- If style is borderless ('n'), we output just the aligned lines ----
+  if l:style_key ==# 'n'
+    let l:boxed = copy(l:content_lines)
+  else
+    " Styles (borders)
+    let l:styles = {
+          \ '-': {'top': '┌─┐', 'vert': '││', 'bottom': '└─┘'},
+          \ '=': {'top': '╔═╗', 'vert': '║║', 'bottom': '╚═╝'},
+          \ '+': {'top': '+-+', 'vert': '||', 'bottom': '+-+'},
+          \ }
+    let l:style = has_key(l:styles, l:style_key) ? l:styles[l:style_key] : l:styles['-']
+    let [l:tl, l:hz, l:tr]  = split(l:style.top, '\zs')
+    let [l:bl, l:hz2, l:br] = split(l:style.bottom, '\zs')
+    let [l:vl, l:vr]        = split(l:style.vert, '\zs')
+
+    let l:top    = l:tl . repeat(l:hz, l:width + 2) . l:tr
+    let l:bottom = l:bl . repeat(l:hz, l:width + 2) . l:br
+
+    let l:boxed = [l:top]
+    for L in l:content_lines
+      call add(l:boxed, l:vl . ' ' . L . ' ' . l:vr)
+    endfor
+    call add(l:boxed, l:bottom)
+  endif
+
+  " Outer alignment against screen width (works for both bordered & borderless)
+  if l:outer !=# 'none' && l:screenw > 0 && !empty(l:boxed)
     let l:boxw = strdisplaywidth(l:boxed[0])
     let l:ml = 0
     if l:outer ==# 'center'
