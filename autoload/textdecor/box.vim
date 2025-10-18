@@ -356,7 +356,7 @@ function! textdecor#box#Wizard() abort
   " Prompts (Enter = default)
   let style  = input('Style [-/=/+] ['.style_default.']: ')
   let width  = input('Box width ['.width_default.']: ')
-  let align  = input('Text align [l/r/c/b] (left/right/center/cblock) ['.align_default.']: ')
+  let align  = input('Text align ([l]eft/[r]ight/[c]enter/[cb]lock) ['.align_default.']: ')
   let outer  = input('Box align [l/c/r/n] (left/center/right/none) ['.outer_default.']: ')
   let screen = input('Screen width (number or @NN) ['.screen_default.']: ')
 
