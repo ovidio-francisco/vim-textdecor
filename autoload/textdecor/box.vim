@@ -2,26 +2,26 @@ function! textdecor#box#Box(first, last, qargs) range
   " Defaults
   let l:style_key = '-'
   let l:min_width = 20
-  let l:align     = 'left'     " inner: left|right|center|centerblock(cblock|c1|c2)
-  let l:outer     = 'none'     " box: none|left|center|right
+  let l:align     = 'left'
+  let l:outer     = 'none'
   let l:screenw   = (&textwidth > 0 ? &textwidth : 0)
-  let l:explicit_width = 0     " set to >0 when user passed a width
 
-  " Parse <q-args>
+  " --- Parse <q-args> (now also accept n|none|plain) ---------------------
   if !empty(a:qargs)
     for tok in split(a:qargs)
       if tok =~# '^\d\+$'
         let l:min_width = str2nr(tok)
-        let l:explicit_width = l:min_width
       elseif tok =~# '^\%(w\|width\|min\)=\d\+$'
         let l:min_width = str2nr(matchstr(tok, '\d\+'))
-        let l:explicit_width = l:min_width
       elseif tok =~# '^\%(s\|screen\|page\)=\d\+$'
         let l:screenw = str2nr(matchstr(tok, '\d\+'))
       elseif tok =~# '^@\d\+$'
         let l:screenw = str2nr(tok[1:])
+      " NEW: styles '-', '=', '+', and borderless: n/none/plain
       elseif index(['-','+','='], tok) >= 0
         let l:style_key = tok
+      elseif tolower(tok) =~# '^\%(n\|none\|plain\)$'
+        let l:style_key = 'n'
       elseif tok =~? '^\(left\|right\|center\|centerblock\|cblock\|c1\|c2\)$'
         let l:align = tolower(tok)
       elseif tok =~? '^outer=\(left\|center\|right\)$'
@@ -32,12 +32,9 @@ function! textdecor#box#Box(first, last, qargs) range
     endfor
   endif
 
-  " Get lines and rtrim trailing spaces (keep leading indent)
+  " Grab lines, strip trailing spaces
   let l:raw   = getline(a:first, a:last)
   let l:lines = map(copy(l:raw), "substitute(v:val, '\\s\\+$', '', '')")
-
-
-
 
   " ===================== BORDERLESS STYLE =====================
   if l:style_key ==# 'n'
@@ -90,6 +87,12 @@ function! textdecor#box#Box(first, last, qargs) range
     return
   endif
   " =================== END BORDERLESS STYLE ===================
+
+
+
+
+
+
 
 
 
