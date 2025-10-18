@@ -399,8 +399,8 @@ function! textdecor#box#Wizard() abort
   " Prompts (Enter = default)
   let style  = input('Style [-/=/+/n (none)] ['.style_default.']: ')
   let width  = input('Box width ['.width_default.']: ')
-  let align  = input('Text align (left/right/center/cblock) [l/r/c/b] ['.align_default.']: ')
-  let outer  = input('Box align (left/right/center/none) [l/r/c/n] ['.outer_default.']: ')
+  let align  = input('Text align [l/r/c/b] (left/right/center/cblock) ['.align_default.']: ')
+  let outer  = input('Box align [l/c/r/n] (left/center/right/none) ['.outer_default.']: ')
   let screen = input('Screen width (number or @NN) ['.screen_default.']: ')
 
   " Apply defaults if empty
@@ -410,60 +410,35 @@ function! textdecor#box#Wizard() abort
   let outer  = (outer ==# ''  ? outer_default  : outer)
   let screen = (screen ==# '' ? screen_default : screen)
 
-  " Normalize short align options
-  let align_map = {
-        \ 'l': 'left',
-        \ 'r': 'right',
-        \ 'c': 'center',
-        \ 'b': 'centerblock',
-        \ }
-  if has_key(align_map, tolower(align))
-    let align = align_map[tolower(align)]
-  endif
+  " Map short align/outer
+  let align_map = {'l':'left','r':'right','c':'center','b':'centerblock'}
+  if has_key(align_map, tolower(align)) | let align = align_map[tolower(align)] | endif
+  let outer_map = {'l':'left','c':'center','r':'right','n':'none'}
+  if has_key(outer_map, tolower(outer)) | let outer = outer_map[tolower(outer)] | endif
 
-  " Normalize outer short options
-  let outer_map = {
-        \ 'l': 'left',
-        \ 'c': 'center',
-        \ 'r': 'right',
-        \ 'n': 'none',
-        \ }
-  if has_key(outer_map, tolower(outer))
-    let outer = outer_map[tolower(outer)]
+  " 🔧 Style mapping now includes borderless
+  let s = tolower(style)
+  if index(['-','=','+','n','none','plain'], s) < 0
+    let s = tolower(style_default)
   endif
+  if s ==# 'none' || s ==# 'plain'
+    let s = 'n'
+  endif
+  let style = s  " now one of '-', '=', '+', or 'n'
 
-  " Validation
-  let style = index(['-','=','+'], style) >= 0 ? style : '-'
-  let align = tolower(align)
-  if index(['left','right','center','centerblock','cblock','c1','c2'], align) < 0
-    let align = 'center'
-  endif
-  let outer = tolower(outer)
-  if index(['left','center','right','none','oleft','ocenter','oright'], outer) < 0
-    let outer = 'center'
-  endif
-
-  if width !~# '^\d\+$'
-    let width = width_default
-  endif
-
-  if screen =~# '^@\d\+$'
-    " ok
-  elseif screen =~# '^\d\+$'
-    " ok
-  else
+  " Validate width/screen
+  if width !~# '^\d\+$' | let width = width_default | endif
+  if !(type(screen)==v:t_string && screen =~# '^@\d\+$') && screen !~# '^\d\+$'
     let screen = screen_default
   endif
 
-  " Build qargs string
-  let parts = [style, width . '', align]
-  if outer !=# 'none'
-    call add(parts, 'outer=' . outer)
-  endif
-  if type(screen) == v:t_string && screen =~# '^@'
+  " Build qargs string for the parser
+  let parts = [style, width.'', align]
+  if outer !=# 'none' | call add(parts, 'outer='.outer) | endif
+  if type(screen)==v:t_string && screen =~# '^@'
     call add(parts, screen)
   else
-    call add(parts, 'screen=' . screen)
+    call add(parts, 'screen='.screen)
   endif
 
   return join(parts, ' ')
