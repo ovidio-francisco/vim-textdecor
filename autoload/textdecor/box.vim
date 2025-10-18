@@ -2,26 +2,26 @@ function! textdecor#box#Box(first, last, qargs) range
   " Defaults
   let l:style_key = '-'
   let l:min_width = 20
-  let l:align     = 'left'     " inner: left|right|center|centerblock(cblock|c1|c2)
-  let l:outer     = 'none'     " box: none|left|center|right
+  let l:align     = 'left'
+  let l:outer     = 'none'
   let l:screenw   = (&textwidth > 0 ? &textwidth : 0)
-  let l:explicit_width = 0     " set to >0 when user passed a width
 
-  " Parse <q-args>
+  " --- Parse <q-args> (now also accept n|none|plain) ---------------------
   if !empty(a:qargs)
     for tok in split(a:qargs)
       if tok =~# '^\d\+$'
         let l:min_width = str2nr(tok)
-        let l:explicit_width = l:min_width
       elseif tok =~# '^\%(w\|width\|min\)=\d\+$'
         let l:min_width = str2nr(matchstr(tok, '\d\+'))
-        let l:explicit_width = l:min_width
       elseif tok =~# '^\%(s\|screen\|page\)=\d\+$'
         let l:screenw = str2nr(matchstr(tok, '\d\+'))
       elseif tok =~# '^@\d\+$'
         let l:screenw = str2nr(tok[1:])
+      " NEW: styles '-', '=', '+', and borderless: n/none/plain
       elseif index(['-','+','='], tok) >= 0
         let l:style_key = tok
+      elseif tolower(tok) =~# '^\%(n\|none\|plain\)$'
+        let l:style_key = 'n'
       elseif tok =~? '^\(left\|right\|center\|centerblock\|cblock\|c1\|c2\)$'
         let l:align = tolower(tok)
       elseif tok =~? '^outer=\(left\|center\|right\)$'
@@ -32,9 +32,61 @@ function! textdecor#box#Box(first, last, qargs) range
     endfor
   endif
 
-  " Get lines and rtrim trailing spaces (keep leading indent)
+  " Grab lines, strip trailing spaces
   let l:raw   = getline(a:first, a:last)
   let l:lines = map(copy(l:raw), "substitute(v:val, '\\s\\+$', '', '')")
+
+  " ===================== BORDERLESS STYLE =====================
+  if l:style_key ==# 'n'
+    " 1) Trim non-blank lines
+    let l:trimmed = []
+    for v in l:lines
+      if v =~# '^\s*$'
+        call add(l:trimmed, '')
+      else
+        if exists('*trim')
+          call add(l:trimmed, trim(v))
+        else
+          call add(l:trimmed, substitute(v, '^\s\+|\s\+$', '', 'g'))
+        endif
+      endif
+    endfor
+    " 2) Join consecutive non-blank lines; 3) keep blank lines
+    let l:out = []
+    let l:acc = []
+    for L in l:trimmed
+      if L ==# ''
+        if !empty(l:acc)
+          let l:para = join(l:acc, ' ')
+          let l:para = substitute(l:para, '\s\{2,}', ' ', 'g')
+          call add(l:out, l:para)
+          let l:acc = []
+        endif
+        call add(l:out, '')
+      else
+        call add(l:acc, L)
+      endif
+    endfor
+    if !empty(l:acc)
+      let l:para = join(l:acc, ' ')
+      let l:para = substitute(l:para, '\s\{2,}', ' ', 'g')
+      call add(l:out, l:para)
+    endif
+
+    " Replace selection safely (same logic you already use)
+    let l:sel_len = a:last - a:first + 1
+    if len(l:out) <= l:sel_len
+      call setline(a:first, l:out)
+      if l:sel_len > len(l:out)
+        call deletebufline('', a:first + len(l:out), a:last)
+      endif
+    else
+      call setline(a:first, l:out[0 : l:sel_len - 1])
+      call append(a:first + l:sel_len - 1, l:out[l:sel_len :])
+    endif
+    return
+  endif
+  " =================== END BORDERLESS STYLE ===================
 
 
 
