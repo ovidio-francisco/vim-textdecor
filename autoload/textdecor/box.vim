@@ -26,8 +26,8 @@ function! textdecor#box#Box(first, last, qargs) range
         let l:style_key = tok
       elseif tolower(tok) =~# '^\%(n\|none\|plain\)$'
         let l:style_key = 'n'
-      elseif tok =~? '^\(left\|right\|center\|centerblock\|cblock\|c1\|c2\)$'
-        let l:align = tolower(tok)
+	  elseif tok =~? '^\(left\|right\|center\|centerblock\|cblock\|c1\|c2\|justify\|j\)$'
+		  let l:align = tolower(tok)
       elseif tok =~? '^outer=\(left\|center\|right\)$'
         let l:outer = tolower(matchstr(tok, '=\zs.*'))
       elseif tok =~? '^o\(left\|center\|right\)$'
@@ -115,31 +115,88 @@ function! textdecor#box#Box(first, last, qargs) range
 
   " Inner alignment helper
   let l:block_left = float2nr((l:width - l:maxw) / 2)
-  function! s:Align(line, width, align, block_left)
-    let l:w = strdisplaywidth(a:line)
-    let l:pad = a:width - l:w
-    if l:pad < 0 | let l:pad = 0 | endif
-    if a:align ==# 'center' || a:align ==# 'c1'
-      let l:left  = float2nr(l:pad / 2)
-      let l:right = l:pad - l:left
-      return repeat(' ', l:left) . a:line . repeat(' ', l:right)
-    elseif a:align ==# 'centerblock' || a:align ==# 'cblock' || a:align ==# 'c2'
-      let l:left  = a:block_left
-      let l:right = a:width - l:left - l:w
-      if l:right < 0 | let l:right = 0 | endif
-      return repeat(' ', l:left) . a:line . repeat(' ', l:right)
-    elseif a:align ==# 'right'
-      return repeat(' ', l:pad) . a:line
-    else
-      return a:line . repeat(' ', l:pad)
-    endif
+  function! s:Align(line, width, align, block_left, is_last) abort
+	  let l:w = strdisplaywidth(a:line)
+	  let l:pad = a:width - l:w
+	  if l:pad < 0 | let l:pad = 0 | endif
+
+	  if a:align ==# 'justify' || a:align ==# 'j'
+		  " Don’t justify the last line of a paragraph or blank/single-word lines
+		  if a:is_last || a:line =~# '^\s*$' || len(split(a:line, '\s\+')) <= 1
+			  return a:line . repeat(' ', l:pad)
+		  endif
+		  return s:Justify(a:line, a:width)
+	  elseif a:align ==# 'center' || a:align ==# 'c1'
+		  let l:left  = float2nr(l:pad / 2)
+		  let l:right = l:pad - l:left
+		  return repeat(' ', l:left) . a:line . repeat(' ', l:right)
+	  elseif a:align ==# 'centerblock' || a:align ==# 'cblock' || a:align ==# 'c2'
+		  let l:left  = a:block_left
+		  let l:right = a:width - l:left - l:w
+		  if l:right < 0 | let l:right = 0 | endif
+		  return repeat(' ', l:left) . a:line . repeat(' ', l:right)
+	  elseif a:align ==# 'right'
+		  return repeat(' ', l:pad) . a:line
+	  else
+		  return a:line . repeat(' ', l:pad)
+	  endif
   endfunction
+
+
+
+  function! s:Justify(line, width) abort
+	  " Don’t justify empty or single-word lines
+	  if a:line =~# '^\s*$' | return a:line | endif
+	  let words = split(a:line, '\s\+')
+	  if len(words) <= 1
+		  " pad right to width
+		  let w = strdisplaywidth(a:line)
+		  return a:line . repeat(' ', max([a:width - w, 0]))
+	  endif
+
+	  " Compute space budget to hit exactly a:width
+	  let total_chars = 0
+	  for w in words
+		  let total_chars += strdisplaywidth(w)
+	  endfor
+	  let gaps = len(words) - 1
+	  let spaces_needed = a:width - total_chars
+	  if spaces_needed <= gaps
+		  " At least 1 space per gap; any deficit -> still 1 per gap (will be shorter)
+		  let base = 1
+		  let extra = max([spaces_needed - gaps, 0])
+	  else
+		  let base = float2nr(floor(spaces_needed / gaps))
+		  let extra = spaces_needed - base * gaps
+	  endif
+
+	  let out = []
+	  for i in range(0, gaps - 1)
+		  call add(out, words[i])
+		  " distribute extras from the left
+		  let addl = base + (i < extra ? 1 : 0)
+		  call add(out, repeat(' ', max([addl, 1])))
+	  endfor
+	  call add(out, words[-1])
+
+	  return join(out, '')
+  endfunction
+
+
+
+
 
   " Build aligned content lines (no outer margin yet)
   let l:content_lines = []
-  for L in l:lines
-    call add(l:content_lines, s:Align(L, l:width, l:align, l:block_left))
+  let lcount = len(l:lines)
+  for i in range(0, lcount - 1)
+	  let L = l:lines[i]
+	  let is_last = (i == lcount - 1)
+	  call add(l:content_lines, s:Align(L, l:width, l:align, l:block_left, is_last))
   endfor
+
+
+
 
   " ---- If style is borderless ('n'), we output just the aligned lines ----
   if l:style_key ==# 'n'
@@ -356,7 +413,7 @@ function! textdecor#box#Wizard() abort
   " Prompts (Enter = default)
   let style  = input('Style [-/=/+/n (none)] ['.style_default.']: ')
   let width  = input('Box width ['.width_default.']: ')
-  let align  = input('Text align [l/r/c/b] (left/right/center/cblock) ['.align_default.']: ')
+  let align  = input('Text align [l/r/c/b/j] (left/right/center/cblock/justify) ['.align_default.']: ')
   let outer  = input('Box align [l/c/r/n] (left/center/right/none) ['.outer_default.']: ')
   let screen = input('Screen width (number or @NN) ['.screen_default.']: ')
 
@@ -368,7 +425,7 @@ function! textdecor#box#Wizard() abort
   let screen = (screen ==# '' ? screen_default : screen)
 
   " Map short align/outer
-  let align_map = {'l':'left','r':'right','c':'center','b':'centerblock'}
+  let align_map = {'l':'left','r':'right','c':'center','b':'centerblock','j':'justify'}
   if has_key(align_map, tolower(align)) | let align = align_map[tolower(align)] | endif
   let outer_map = {'l':'left','c':'center','r':'right','n':'none'}
   if has_key(outer_map, tolower(outer)) | let outer = outer_map[tolower(outer)] | endif
