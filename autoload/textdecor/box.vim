@@ -55,7 +55,6 @@ function! textdecor#box#Box(first, last, qargs) range
 	" else
 		" let l:inner_vpad = 0
 	endif
-f
  
  
   endif
