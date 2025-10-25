@@ -48,11 +48,14 @@ function! textdecor#box#Box(first, last, qargs) range
       endif
     endfor
 
+
 	" Derive vertical padding (lines) from horizontal padding and ratio.
-	" Only for bordered styles; ensure at least 1 line if inner_pad>0.
-	if l:style_key !=# 'n' && l:inner_pad > 0
-		let l:inner_vpad = max([1, float2nr(floor(l:inner_pad / (l:pad_ratio > 0 ? l:pad_ratio : 1.0)))])
+	if l:style_key !=# 'n' && l:inner_pad > 1
+		let l:inner_vpad = float2nr(floor(l:inner_pad / (l:pad_ratio > 0 ? l:pad_ratio : 1.0)))
+	" else
+		" let l:inner_vpad = 0
 	endif
+f
  
  
   endif
