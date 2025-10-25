@@ -8,6 +8,11 @@ function! textdecor#box#Box(first, last, qargs) range
   let l:explicit_width = 0
   let l:do_wrap        = 0
   let l:width          = 0
+  let l:inner_pad    = get(g:, 'textdecor_box_innerpad_default', 1)
+  
+
+  let g:textdecor_box_innerpad_default = get(g:, 'textdecor_box_innerpad_default', 1)
+
 
   " --- Parse <q-args> (also accept n|none|plain) --------------------------
   if !empty(a:qargs)
@@ -32,6 +37,8 @@ function! textdecor#box#Box(first, last, qargs) range
         let l:outer = tolower(matchstr(tok, '=\zs.*'))
       elseif tok =~? '^o\(left\|center\|right\)$'
         let l:outer = tolower(matchstr(tok, '^o\zs.*'))
+	  elseif tok =~# '^\%(p\|pad\|ip\)=\d\+$'
+	    let l:inner_pad = str2nr(matchstr(tok, '\d\+'))
       endif
     endfor
   endif
@@ -47,10 +54,9 @@ function! textdecor#box#Box(first, last, qargs) range
   if l:explicit_width > 0
     let l:width   = max([l:explicit_width, 1])
     let l:do_wrap = 1
-  elseif l:screenw > 0 && (l:maxw_orig + 4) > l:screenw
-    " 4 = 2 inner spaces + 2 border glyphs (approx)
-    let l:width   = max([l:screenw - 4, 1])
-    let l:do_wrap = 1
+  elseif l:screenw > 0 && (l:maxw_orig + (2*l:inner_pad) + 2) > l:screenw
+	  let l:width   = max([l:screenw - ((2*l:inner_pad) + 2), 1])
+	  let l:do_wrap = 1
   else
     let l:width   = max([l:maxw_orig, l:min_width])
     let l:do_wrap = 0
@@ -200,27 +206,28 @@ function! textdecor#box#Box(first, last, qargs) range
 
   " ---- If style is borderless ('n'), we output just the aligned lines ----
   if l:style_key ==# 'n'
-    let l:boxed = copy(l:content_lines)
+	  " Borderless: no inner side padding added here.
+	  let l:boxed = copy(l:content_lines)
   else
-    " Styles (borders)
-    let l:styles = {
-          \ '-': {'top': '┌─┐', 'vert': '││', 'bottom': '└─┘'},
-          \ '=': {'top': '╔═╗', 'vert': '║║', 'bottom': '╚═╝'},
-          \ '+': {'top': '+-+', 'vert': '||', 'bottom': '+-+'},
-          \ }
-    let l:style = has_key(l:styles, l:style_key) ? l:styles[l:style_key] : l:styles['-']
-    let [l:tl, l:hz, l:tr]  = split(l:style.top, '\zs')
-    let [l:bl, l:hz2, l:br] = split(l:style.bottom, '\zs')
-    let [l:vl, l:vr]        = split(l:style.vert, '\zs')
+	  let l:styles = {
+				  \ '-': {'top': '┌─┐', 'vert': '││', 'bottom': '└─┘'},
+				  \ '=': {'top': '╔═╗', 'vert': '║║', 'bottom': '╚═╝'},
+				  \ '+': {'top': '+-+', 'vert': '||', 'bottom': '+-+'},
+				  \ }
+	  let l:style = has_key(l:styles, l:style_key) ? l:styles[l:style_key] : l:styles['-']
+	  let [l:tl, l:hz, l:tr]  = split(l:style.top, '\zs')
+	  let [l:bl, l:hz2, l:br] = split(l:style.bottom, '\zs')
+	  let [l:vl, l:vr]        = split(l:style.vert, '\zs')
 
-    let l:top    = l:tl . repeat(l:hz, l:width + 2) . l:tr
-    let l:bottom = l:bl . repeat(l:hz, l:width + 2) . l:br
+	  " Top/bottom widths include 2*inner_pad
+	  let l:top    = l:tl . repeat(l:hz, l:width + (2*l:inner_pad)) . l:tr
+	  let l:bottom = l:bl . repeat(l:hz, l:width + (2*l:inner_pad)) . l:br
 
-    let l:boxed = [l:top]
-    for L in l:content_lines
-      call add(l:boxed, l:vl . ' ' . L . ' ' . l:vr)
-    endfor
-    call add(l:boxed, l:bottom)
+	  let l:boxed = [l:top]
+	  for L in l:content_lines
+		  call add(l:boxed, l:vl . repeat(' ', l:inner_pad) . L . repeat(' ', l:inner_pad) . l:vr)
+	  endfor
+	  call add(l:boxed, l:bottom)
   endif
 
   " Outer alignment against screen width (works for both bordered & borderless)
@@ -409,6 +416,7 @@ function! textdecor#box#Wizard() abort
   let align_default  = get(g:, 'textdecor_box_align_default', 'center')
   let outer_default  = get(g:, 'textdecor_box_outer_default', 'center')
   let screen_default = get(g:, 'textdecor_box_screen_default', (&textwidth > 0 ? &textwidth : 80))
+  let pad_default    = get(g:, 'textdecor_box_innerpad_default', 1)
 
   " Prompts (Enter = default)
   let style  = input('Style [-/=/+/n (none)] ['.style_default.']: ')
@@ -416,6 +424,7 @@ function! textdecor#box#Wizard() abort
   let align  = input('Text align [l/r/c/b/j] (left/right/center/cblock/justify) ['.align_default.']: ')
   let outer  = input('Box align [l/c/r/n] (left/center/right/none) ['.outer_default.']: ')
   let screen = input('Screen width (number or @NN) ['.screen_default.']: ')
+  let pad    = input('Inner padding (spaces, bordered styles only) ['.pad_default.']: ')
 
   " Apply defaults if empty
   let style  = (style ==# ''  ? style_default  : style)
@@ -440,11 +449,12 @@ function! textdecor#box#Wizard() abort
   endif
   let style = s  " now one of '-', '=', '+', or 'n'
 
-  " Validate width/screen
+  " Validate width/screen/pad
   if width !~# '^\d\+$' | let width = width_default | endif
   if !(type(screen)==v:t_string && screen =~# '^@\d\+$') && screen !~# '^\d\+$'
-    let screen = screen_default
+	  let screen = screen_default
   endif
+  if pad !~# '^\d\+$' | let pad = pad_default | endif
 
   " Build qargs string for the parser
   let parts = [style, width.'', align]
@@ -454,6 +464,14 @@ function! textdecor#box#Wizard() abort
   else
     call add(parts, 'screen='.screen)
   endif
+
+
+  " Only add pad when bordered styles
+  if style !=# 'n'
+	call add(parts, 'pad='.pad)
+  endif
+
+
 
   return join(parts, ' ')
 endfunction
