@@ -223,6 +223,7 @@ function! textdecor#box#Box(first, last, qargs) range
 	  " Borderless: no inner side padding added here.
 	  let l:boxed = copy(l:content_lines)
   else
+	  " ---- Bordered styles ----
 	  let l:styles = {
 				  \ '-': {'top': '┌─┐', 'vert': '││', 'bottom': '└─┘'},
 				  \ '=': {'top': '╔═╗', 'vert': '║║', 'bottom': '╚═╝'},
@@ -239,27 +240,29 @@ function! textdecor#box#Box(first, last, qargs) range
 
 	  let l:boxed = [l:top]
 
-	  " Top vertical inner padding (blank inner rows)
-	  if l:inner_vpad > 0
+	  " ⬆️ TOP vertical padding (blank inner rows)
+	  if exists('l:inner_vpad') && l:inner_vpad > 0
 		  let l:empty_inner = l:vl . repeat(' ', l:inner_pad) . repeat(' ', l:width) . repeat(' ', l:inner_pad) . l:vr
 		  for _ in range(1, l:inner_vpad)
 			  call add(l:boxed, l:empty_inner)
 		  endfor
 	  endif
-	 
+
+	  " Content lines
 	  for L in l:content_lines
 		  call add(l:boxed, l:vl . repeat(' ', l:inner_pad) . L . repeat(' ', l:inner_pad) . l:vr)
 	  endfor
-	  call add(l:boxed, l:bottom)
 
-
-	  " Bottom vertical inner padding
-	  if l:inner_vpad > 0
-		  let l:empty_inner = l:vl . repeat(' ', l:inner_pad) . repeat(' ', l:width) . repeat(' ', l:inner_pad) . l:vr
+	  " ⬇️ BOTTOM vertical padding (must be BEFORE the bottom border)
+	  if exists('l:inner_vpad') && l:inner_vpad > 0
+		  " reuse l:empty_inner (recompute if you prefer)
 		  for _ in range(1, l:inner_vpad)
 			  call add(l:boxed, l:empty_inner)
 		  endfor
 	  endif
+
+	  " Bottom border LAST
+	  call add(l:boxed, l:bottom)
 
   endif
 
