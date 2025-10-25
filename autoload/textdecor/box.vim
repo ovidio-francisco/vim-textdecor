@@ -1,3 +1,8 @@
+" Defaults (global, user may override in vimrc)
+let g:textdecor_box_innerpad_default = get(g:, 'textdecor_box_innerpad_default', 1)
+let g:textdecor_box_pad_ratio        = get(g:, 'textdecor_box_pad_ratio', 1.5)
+
+
 function! textdecor#box#Box(first, last, qargs) range
   " Defaults
   let l:style_key      = '-'
@@ -8,10 +13,11 @@ function! textdecor#box#Box(first, last, qargs) range
   let l:explicit_width = 0
   let l:do_wrap        = 0
   let l:width          = 0
-  let l:inner_pad    = get(g:, 'textdecor_box_innerpad_default', 1)
-  
 
-  let g:textdecor_box_innerpad_default = get(g:, 'textdecor_box_innerpad_default', 1)
+  let l:inner_pad  = get(g:, 'textdecor_box_innerpad_default', 1)
+  let l:pad_ratio  = get(g:, 'textdecor_box_pad_ratio', 1.5)
+  " l:inner_vpad will be computed from inner_pad and pad_ratio (bordered only)
+  let l:inner_vpad = 0
 
 
   " --- Parse <q-args> (also accept n|none|plain) --------------------------
@@ -41,6 +47,14 @@ function! textdecor#box#Box(first, last, qargs) range
 	    let l:inner_pad = str2nr(matchstr(tok, '\d\+'))
       endif
     endfor
+
+	" Derive vertical padding (lines) from horizontal padding and ratio.
+	" Only for bordered styles; ensure at least 1 line if inner_pad>0.
+	if l:style_key !=# 'n' && l:inner_pad > 0
+		let l:inner_vpad = max([1, float2nr(round(l:inner_pad / (l:pad_ratio > 0 ? l:pad_ratio : 1.0)))])
+	endif
+ 
+ 
   endif
 
   " Read lines and rtrim (keep indent)
@@ -224,10 +238,29 @@ function! textdecor#box#Box(first, last, qargs) range
 	  let l:bottom = l:bl . repeat(l:hz, l:width + (2*l:inner_pad)) . l:br
 
 	  let l:boxed = [l:top]
+
+	  " Top vertical inner padding (blank inner rows)
+	  if l:inner_vpad > 0
+		  let l:empty_inner = l:vl . repeat(' ', l:inner_pad) . repeat(' ', l:width) . repeat(' ', l:inner_pad) . l:vr
+		  for _ in range(1, l:inner_vpad)
+			  call add(l:boxed, l:empty_inner)
+		  endfor
+	  endif
+	 
 	  for L in l:content_lines
 		  call add(l:boxed, l:vl . repeat(' ', l:inner_pad) . L . repeat(' ', l:inner_pad) . l:vr)
 	  endfor
 	  call add(l:boxed, l:bottom)
+
+
+	  " Bottom vertical inner padding
+	  if l:inner_vpad > 0
+		  let l:empty_inner = l:vl . repeat(' ', l:inner_pad) . repeat(' ', l:width) . repeat(' ', l:inner_pad) . l:vr
+		  for _ in range(1, l:inner_vpad)
+			  call add(l:boxed, l:empty_inner)
+		  endfor
+	  endif
+
   endif
 
   " Outer alignment against screen width (works for both bordered & borderless)
