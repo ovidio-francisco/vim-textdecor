@@ -1,0 +1,22 @@
+
+# ---------------------------
+# Vim / Neovim Plugin Project
+# ---------------------------
+
+# Swap, backup, undo, session files
+*.swp
+*.swo
+*.swn
+*.bak
+*.tmp
+*.orig
+*.un~
+Session.vim
+Sessionx.vim
+tags
+
+# Lua / LSP cache
+luac.out
+.nvimlog
+.cache/
+.logs/
