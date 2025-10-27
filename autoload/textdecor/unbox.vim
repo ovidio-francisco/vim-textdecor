@@ -81,13 +81,19 @@ function! textdecor#box#Unbox(first, last) range abort
 endfunction
 
 
-function! textdecor#box#UnboxAuto() abort
-  " Regex for our three styles (ASCII + Unicode thin/thick)
+function! textdecor#box#UnboxAuto(first, last) range abort
+  " If a Visual/explicit range was provided, just unbox that.
+  if a:first > 0 && a:last > 0 && a:first <= a:last && (a:last - a:first) >= 0
+    call textdecor#box#Unbox(a:first, a:last)
+    return
+  endif
+
+  " Try to detect a bordered box around the cursor
   let hz         = '─═-'
   let top_pat    = '^\s*['.'┌╔+'.']['.hz.']\+['.'┐╗+'.']\s*$'
   let bottom_pat = '^\s*['.'└╚+'.']['.hz.']\+['.'┘╝+'.']\s*$'
 
-  " 1) Find the nearest top border at/above the cursor
+  " 1) Find top border at/above cursor
   let lnum = line('.')
   let top  = 0
   while lnum >= 1
@@ -98,29 +104,41 @@ function! textdecor#box#UnboxAuto() abort
     endif
     let lnum -= 1
   endwhile
-  if top == 0
-    echohl WarningMsg | echom 'Unbox: no top border found above cursor.' | echohl None
-    return
-  endif
 
-  " 2) From the top border, find the bottom border below
-  let cur = top + 1
-  let bot = 0
-  while cur <= line('$')
-    let L = getline(cur)
-    if L =~# bottom_pat
-      let bot = cur
-      break
+  " 2) If top found, find bottom and unbox that range
+  if top > 0
+    let cur = top + 1
+    let bot = 0
+    while cur <= line('$')
+      let L = getline(cur)
+      if L =~# bottom_pat
+        let bot = cur
+        break
+      endif
+      let cur += 1
+    endwhile
+    if bot > 0
+      call textdecor#box#Unbox(top, bot)
+      return
     endif
-    let cur += 1
+  endif
+
+  " 3) Fallback: no borders → use the paragraph under cursor (non-blank block)
+  let s = line('.')
+  while s > 1 && getline(s - 1) !~# '^\s*$'
+    let s -= 1
   endwhile
-  if bot == 0
-    echohl WarningMsg | echom 'Unbox: no bottom border found below top.' | echohl None
+  let e = line('.')
+  while e < line('$') && getline(e + 1) !~# '^\s*$'
+    let e += 1
+  endwhile
+
+  " If the paragraph is empty, warn and bail
+  if s > e || join(getline(s, e), '') =~# '^\s*$'
+    echohl WarningMsg | echom 'Unbox: nothing to unbox here.' | echohl None
     return
   endif
 
-  " 3) Unbox exactly that range
-  call textdecor#box#Unbox(top, bot)
+  call textdecor#box#Unbox(s, e)
 endfunction
-
 
