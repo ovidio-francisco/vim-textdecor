@@ -1,4 +1,4 @@
-function! textdecor#box#Unbox(first, last) range abort
+function! textdecor#unbox#Unbox(first, last) range abort
   let raw = getline(a:first, a:last)
   if empty(raw) | return | endif
 
@@ -81,10 +81,10 @@ function! textdecor#box#Unbox(first, last) range abort
 endfunction
 
 
-function! textdecor#box#UnboxAuto() range abort
+function! textdecor#unbox#UnboxAuto() range abort
   " Always handle explicit Visual range first
   if a:firstline != a:lastline
-    call textdecor#box#Unbox(a:firstline, a:lastline)
+    call textdecor#unbox#Unbox(a:firstline, a:lastline)
     return
   endif
 
@@ -116,7 +116,7 @@ function! textdecor#box#UnboxAuto() range abort
       let cur += 1
     endwhile
     if bot > 0
-      call textdecor#box#Unbox(top, bot)
+      call textdecor#unbox#Unbox(top, bot)
       return
     endif
   endif
@@ -127,7 +127,6 @@ function! textdecor#box#UnboxAuto() range abort
   " -------------------------------
   
 
-  echo 'heeeeeeere'
   let s = line('.')
   while s > 1 && getline(s - 1) !~# '^\s*$'
     let s -= 1
@@ -144,6 +143,6 @@ function! textdecor#box#UnboxAuto() range abort
   endif
 
   " Finally unbox the paragraph region
-  call textdecor#box#Unbox(s, e)
+  call textdecor#unbox#Unbox(s, e)
 endfunction
 
