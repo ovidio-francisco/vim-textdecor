@@ -125,6 +125,9 @@ function! textdecor#box#UnboxAuto() range abort
   " Fallback: no borders detected →
   " use paragraph under cursor
   " -------------------------------
+  
+
+  echo 'heeeeeeere'
   let s = line('.')
   while s > 1 && getline(s - 1) !~# '^\s*$'
     let s -= 1
