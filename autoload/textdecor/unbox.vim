@@ -121,11 +121,11 @@ function! textdecor#unbox#UnboxAuto() range abort
     endif
   endif
 
+
+
   " -------------------------------
-  " Fallback: no borders detected →
-  " use paragraph under cursor
+  " Fallback: no borders detected → " use paragraph under cursor
   " -------------------------------
-  
 
   let s = line('.')
   while s > 1 && getline(s - 1) !~# '^\s*$'
