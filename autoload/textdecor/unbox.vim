@@ -81,7 +81,11 @@ function! textdecor#box#Unbox(first, last) range abort
 endfunction
 
 
-function! textdecor#box#UnboxAuto(first, last) range abort
+function! textdecor#box#UnboxAuto() range abort
+
+  let first = a:firstline
+  let last  = a:lastline
+
   " If a Visual/explicit range was provided, just unbox that.
   if a:first > 0 && a:last > 0 && a:first <= a:last && (a:last - a:first) >= 0
     call textdecor#box#Unbox(a:first, a:last)
