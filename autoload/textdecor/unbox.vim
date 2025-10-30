@@ -160,29 +160,3 @@ function! textdecor#unbox#UnboxAuto() range abort
     call textdecor#unbox#Unbox(s, e)
   endif
 endfunction
-
-
-
-  " -------------------------------
-  " Fallback: no borders detected → " use paragraph under cursor
-  " -------------------------------
-
-  let s = line('.')
-  while s > 1 && getline(s - 1) !~# '^\s*$'
-    let s -= 1
-  endwhile
-  let e = line('.')
-  while e < line('$') && getline(e + 1) !~# '^\s*$'
-    let e += 1
-  endwhile
-
-  " Abort if nothing meaningful
-  if s > e || join(getline(s, e), '') =~# '^\s*$'
-    echohl WarningMsg | echom 'Unbox: nothing to unbox here.' | echohl None
-    return
-  endif
-
-  " Finally unbox the paragraph region
-  call textdecor#unbox#Unbox(s, e)
-endfunction
-
