@@ -82,21 +82,26 @@ endfunction
 
 
 function! textdecor#unbox#UnboxAuto() range abort
-  " Always handle explicit Visual range first
+  " 1) If Visual range, unbox exactly that.
   if a:firstline != a:lastline
     call textdecor#unbox#Unbox(a:firstline, a:lastline)
     return
   endif
 
-  " Detect bordered box around cursor
+  " 2) If cursor is on a blank line → do nothing.
+  if getline('.') =~# '^\s*$'
+    return
+  endif
+
+  " 3) Try a bordered box, but DO NOT cross blank lines.
   let hz         = '─═-'
   let top_pat    = '^\s*['.'┌╔+'.']['.hz.']\+['.'┐╗+'.']\s*$'
   let bottom_pat = '^\s*['.'└╚+'.']['.hz.']\+['.'┘╝+'.']\s*$'
 
-  " Try to find top border
+  " Search up until a blank line for the top border
   let lnum = line('.')
   let top  = 0
-  while lnum >= 1
+  while lnum >= 1 && getline(lnum) !~# '^\s*$'
     if getline(lnum) =~# top_pat
       let top = lnum
       break
@@ -104,11 +109,11 @@ function! textdecor#unbox#UnboxAuto() range abort
     let lnum -= 1
   endwhile
 
-  " If found, find bottom border and unbox normally
+  " If top found, search down until a blank line for the bottom border
   if top > 0
     let cur = top + 1
     let bot = 0
-    while cur <= line('$')
+    while cur <= line('$') && getline(cur) !~# '^\s*$'
       if getline(cur) =~# bottom_pat
         let bot = cur
         break
@@ -120,6 +125,41 @@ function! textdecor#unbox#UnboxAuto() range abort
       return
     endif
   endif
+
+  " 4) Heuristic for borderless box: only consider the current paragraph.
+  "    If it doesn't look like a padded/justified block, do nothing.
+  let s = line('.')
+  while s > 1 && getline(s - 1) !~# '^\s*$' | let s -= 1 | endwhile
+  let e = line('.')
+  while e < line('$') && getline(e + 1) !~# '^\s*$' | let e += 1 | endwhile
+  let lines = getline(s, e)
+
+  " Require at least 2 non-blank lines
+  if len(filter(copy(lines), 'v:val !~# "^\s*$"')) < 2
+    return
+  endif
+
+  " Reject if paragraph already contains explicit borders
+  for L in lines
+    if L =~# top_pat || L =~# bottom_pat
+      return
+    endif
+  endfor
+
+  " Consider it a no-border box if it has uniform indent OR fixed width
+  let min_indent = -1
+  let widths = {}
+  for L in lines
+    if L =~# '^\s*$' | continue | endif
+    let li = len(matchstr(L, '^\s*'))
+    let min_indent = (min_indent < 0 ? li : (li < min_indent ? li : min_indent))
+    let widths[len(L)] = 1
+  endfor
+
+  if min_indent > 0 || len(keys(widths)) == 1
+    call textdecor#unbox#Unbox(s, e)
+  endif
+endfunction
 
 
 
