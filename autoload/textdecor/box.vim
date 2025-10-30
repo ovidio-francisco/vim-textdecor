@@ -317,68 +317,119 @@ endfunction
 
 " Wizard: ask for parameters, return a single qargs string compatible with parser
 function! textdecor#box#Wizard() abort
-  " Defaults
+  " -------------------------
+  " Defaults (global or sane)
+  " -------------------------
   let style_default  = get(g:, 'textdecor_box_style_default', '-')
   let width_default  = get(g:, 'textdecor_box_minwidth_default', 40)
   let align_default  = get(g:, 'textdecor_box_align_default', 'center')
   let outer_default  = get(g:, 'textdecor_box_outer_default', 'center')
-  let screen_default = get(g:, 'textdecor_box_screen_default', (&textwidth > 0 ? &textwidth : 80))
+  " Prefer &columns when available; fallback to &textwidth (or 80)
+  let screen_default = get(g:, 'textdecor_box_screen_default',
+        \ (&columns > 0 ? &columns : (&textwidth > 0 ? &textwidth : 80)))
   let pad_default    = get(g:, 'textdecor_box_innerpad_default', 1)
 
+  " -------------------------
   " Prompts (Enter = default)
+  " -------------------------
+  " Order: style → align → width → pad → outer → screen
   let style  = input('Style [-/=/+/n (none)] ['.style_default.']: ')
-  let width  = input('Box width ['.width_default.']: ')
   let align  = input('Text align [l/r/c/b/j] (left/right/center/cblock/justify) ['.align_default.']: ')
+  let width  = input('Box min width ['.width_default.']: ')
+  let pad    = input('Inner padding (spaces; bordered only) ['.pad_default.']: ')
   let outer  = input('Box align [l/c/r/n] (left/center/right/none) ['.outer_default.']: ')
   let screen = input('Screen width (number or @NN) ['.screen_default.']: ')
-  let pad    = input('Inner padding (spaces, bordered styles only) ['.pad_default.']: ')
 
+  " -------------------------
   " Apply defaults if empty
-  let style  = (style ==# ''  ? style_default  : style)
-  let width  = (width ==# ''  ? width_default  : width)
-  let align  = (align ==# ''  ? align_default  : align)
-  let outer  = (outer ==# ''  ? outer_default  : outer)
+  " -------------------------
+  let style  = (style  ==# '' ? style_default  : style)
+  let align  = (align  ==# '' ? align_default  : align)
+  let width  = (width  ==# '' ? width_default  : width)
+  let pad    = (pad    ==# '' ? pad_default    : pad)
+  let outer  = (outer  ==# '' ? outer_default  : outer)
   let screen = (screen ==# '' ? screen_default : screen)
 
-  " Map short align/outer
-  let align_map = {'l':'left','r':'right','c':'center','b':'centerblock','j':'justify'}
-  if has_key(align_map, tolower(align)) | let align = align_map[tolower(align)] | endif
-  let outer_map = {'l':'left','c':'center','r':'right','n':'none'}
-  if has_key(outer_map, tolower(outer)) | let outer = outer_map[tolower(outer)] | endif
-
-  " 🔧 Style mapping now includes borderless
+  " -------------------------
+  " Normalize / map options
+  " -------------------------
+  " Style: support synonyms → '-', '=', '+', 'n'
   let s = tolower(style)
-  if index(['-','=','+','n','none','plain'], s) < 0
-    let s = tolower(style_default)
-  endif
-  if s ==# 'none' || s ==# 'plain'
+  if s =~# '^\s*none\|plain\|n\s*$'
     let s = 'n'
+  elseif index(['-','=','+','n'], s) < 0
+    let s = tolower(style_default)
+    if s =~# '^\s*none\|plain\|n\s*$' | let s = 'n' | endif
   endif
-  let style = s  " now one of '-', '=', '+', or 'n'
+  let style = s
 
-  " Validate width/screen/pad
-  if width !~# '^\d\+$' | let width = width_default | endif
-  if !(type(screen)==v:t_string && screen =~# '^@\d\+$') && screen !~# '^\d\+$'
-	  let screen = screen_default
-  endif
-  if pad !~# '^\d\+$' | let pad = pad_default | endif
+  " Align maps
+  let align_map = {'l':'left','r':'right','c':'center','b':'centerblock','j':'justify'}
+  let akey = tolower(align)
+  let align = has_key(align_map, akey) ? align_map[akey] : align
 
-  " Build qargs string for the parser
-  let parts = [style, width.'', align]
-  if outer !=# 'none' | call add(parts, 'outer='.outer) | endif
-  if type(screen)==v:t_string && screen =~# '^@'
-    call add(parts, screen)
+  let outer_map = {'l':'left','c':'center','r':'right','n':'none'}
+  let okey = tolower(outer)
+  let outer = has_key(outer_map, okey) ? outer_map[okey] : outer
+
+  " -------------------------
+  " Validate numeric-ish args
+  " -------------------------
+  if width =~# '^\d\+$'
+    let width = str2nr(width)
   else
-    call add(parts, 'screen='.screen)
+    let width = str2nr(width_default)
+  endif
+  if width < 4
+    " Minimal sensible width so borders/contents don't collapse
+    let width = 4
   endif
 
+  if pad =~# '^\d\+$'
+    let pad = str2nr(pad)
+  else
+    let pad = str2nr(pad_default)
+  endif
+  if pad < 0 | let pad = 0 | endif
 
-  " Only add pad when bordered styles
+  " screen can be a number or '@NN' (meaning: use &columns - NN)
+  let screen_is_at = (type(screen)==v:t_string && screen =~# '^@\d\+$')
+  if !screen_is_at
+    if type(screen)==v:t_string && screen =~# '^\d\+$'
+      let screen = str2nr(screen)
+    elseif type(screen)==v:t_number
+      " keep as is
+    else
+      let screen = str2nr(screen_default)
+    endif
+    if screen < 1
+      let screen = (&columns > 0 ? &columns : 80)
+    endif
+  endif
+
+  " -------------------------
+  " Build qargs for the parser
+  " -------------------------
+  " Desired order: style width align [pad?] [outer?] [screen?]
+  let parts = [style, string(width), align]
+
+  " pad only for bordered styles
   if style !=# 'n'
-	call add(parts, 'pad='.pad)
+    call add(parts, 'pad='.string(pad))
   endif
 
-
+  " If outer alignment is left, `outer` and `screen` are not useful:
+  " - outer=left → the box is anchored at current indent/column
+  " - screen is only meaningful for centering/right alignment
+  if outer !=# 'left' && outer !=# 'none'
+    call add(parts, 'outer='.outer)
+    if screen_is_at
+      " keep the token for downstream to resolve at runtime
+      call add(parts, screen)
+    else
+      call add(parts, 'screen='.string(screen))
+    endif
+  endif
 
   return join(parts, ' ')
 endfunction
