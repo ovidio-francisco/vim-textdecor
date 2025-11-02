@@ -37,6 +37,9 @@ function! textdecor#box#Box(first, last, qargs) range
         let l:style_key = tok
       elseif tolower(tok) =~# '^\%(n\|none\|plain\)$'
         let l:style_key = 'n'
+      elseif tok =~# '^\S$' && tok !~# '[[:alnum:]]'
+        " accept any single non-alphanumeric printable symbol as custom border
+        let l:style_key = tok
 	  elseif tok =~? '^\(left\|right\|center\|centerblock\|cblock\|c1\|c2\|justify\|j\)$'
 		  let l:align = tolower(tok)
       elseif tok =~? '^outer=\(left\|center\|right\)$'
