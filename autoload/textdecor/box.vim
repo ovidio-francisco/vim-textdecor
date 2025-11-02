@@ -79,6 +79,49 @@ function! textdecor#box#Box(first, last, qargs) range
     let l:do_wrap = 0
   endif
 
+  " Decide target content width (inner width, excluding side padding)
+  if l:explicit_width > 0
+    let l:width   = max([l:explicit_width, 1])
+    let l:do_wrap = 1
+  elseif l:screenw > 0 && (l:maxw_orig + (2*l:inner_pad) + 2) > l:screenw
+    let l:width   = max([l:screenw - ((2*l:inner_pad) + 2), 1])
+    let l:do_wrap = 1
+  else
+    let l:width   = max([l:maxw_orig, l:min_width])
+    let l:do_wrap = 0
+  endif
+
+  " ---------------------------------------------------------
+  " 🔧 Choose border characters based on l:style_key
+  " ---------------------------------------------------------
+  let hchr = '-'    " horizontal
+  let vchr = '|'    " vertical
+  let c_tl = '+'    " corners
+  let c_tr = '+'
+  let c_bl = '+'
+  let c_br = '+'
+
+  if l:style_key ==# 'n'
+    " borderless: skip borders later
+  elseif index(['-','='], l:style_key) >= 0
+    if l:style_key ==# '='
+      let hchr = '='
+    endif
+  elseif l:style_key ==# '+'
+    " you may already have custom logic for '+'
+  else
+    " custom: use the same character everywhere
+    let sym  = l:style_key
+    let hchr = sym
+    let vchr = sym
+    let c_tl = sym
+    let c_tr = sym
+    let c_bl = sym
+    let c_br = sym
+  endif
+
+
+
   " Word-wrap helper
   function! s:Wrap(line, width) abort
     if a:width <= 0 | return [a:line] | endif
