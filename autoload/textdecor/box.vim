@@ -332,8 +332,8 @@ function! textdecor#box#Wizard() abort
   " Step 1: core prompts
   " -------------------------
   let style = input('Style [-/=/+/n (none)] ['.style_default.']: ')
-  let align = input('Text align [l/r/c/b/j] (left/right/center/cblock/justify) ['.align_default.']: ')
   let width = input('Box min width ['.width_default.']: ')
+  let align = input('Text align [l/r/c/b/j] (left/right/center/cblock/justify) ['.align_default.']: ')
   let outer = input('Box align [l/c/r/n] (left/center/right/none) ['.outer_default.']: ')
 
   " Apply defaults if empty
@@ -368,13 +368,6 @@ function! textdecor#box#Wizard() abort
   " -------------------------
   " Step 2: conditional prompts
   " -------------------------
-  let pad = 0
-  if style !=# 'n'
-    let pad_in = input('Inner padding (spaces; bordered only) ['.pad_default.']: ')
-    let pad = (pad_in ==# '' ? pad_default : pad_in)
-    let pad = pad =~# '^\d\+$' ? str2nr(pad) : str2nr(pad_default)
-    if pad < 0 | let pad = 0 | endif
-  endif
 
   let screen = ''
   if outer ==# 'center' || outer ==# 'right'
@@ -393,6 +386,14 @@ function! textdecor#box#Wizard() abort
         let screen = (&columns > 0 ? &columns : 80)
       endif
     endif
+  endif
+
+  let pad = 0
+  if style !=# 'n'
+    let pad_in = input('Inner padding (spaces; bordered only) ['.pad_default.']: ')
+    let pad = (pad_in ==# '' ? pad_default : pad_in)
+    let pad = pad =~# '^\d\+$' ? str2nr(pad) : str2nr(pad_default)
+    if pad < 0 | let pad = 0 | endif
   endif
 
   " -------------------------
