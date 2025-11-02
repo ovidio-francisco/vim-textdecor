@@ -20,58 +20,41 @@ function! textdecor#box#Box(first, last, qargs) range
   let l:inner_vpad = 0
 
 
-  " --- Parse <q-args> (also accept n|none|plain and custom symbol) ----------
+  " --- Parse <q-args> (also accept n|none|plain) --------------------------
   if !empty(a:qargs)
-	  for tok in split(a:qargs)
-		  if tok =~# '^\%(w\|width\|min\)=\d\+$'
-			  let l:min_width = str2nr(matchstr(tok, '\d\+'))
-			  let l:explicit_width = l:min_width
+    for tok in split(a:qargs)
+      if tok =~# '^\%(w\|width\|min\)=\d\+$'
+        let l:min_width = str2nr(matchstr(tok, '\d\+'))
+        let l:explicit_width = l:min_width
+      elseif tok =~# '^\d\+$'
+        let l:min_width = str2nr(tok)
+        let l:explicit_width = l:min_width
+      elseif tok =~# '^\%(s\|screen\|page\)=\d\+$'
+        let l:screenw = str2nr(matchstr(tok, '\d\+'))
+      elseif tok =~# '^@\d\+$'
+        let l:screenw = str2nr(tok[1:])
+      elseif index(['-','+','='], tok) >= 0
+        let l:style_key = tok
+      elseif tolower(tok) =~# '^\%(n\|none\|plain\)$'
+        let l:style_key = 'n'
+	  elseif tok =~? '^\(left\|right\|center\|centerblock\|cblock\|c1\|c2\|justify\|j\)$'
+		  let l:align = tolower(tok)
+      elseif tok =~? '^outer=\(left\|center\|right\)$'
+        let l:outer = tolower(matchstr(tok, '=\zs.*'))
+      elseif tok =~? '^o\(left\|center\|right\)$'
+        let l:outer = tolower(matchstr(tok, '^o\zs.*'))
+	  elseif tok =~# '^\%(p\|pad\|ip\)=\d\+$'
+	    let l:inner_pad = str2nr(matchstr(tok, '\d\+'))
+      endif
+    endfor
 
-		  elseif tok =~# '^\d\+$'
-			  let l:min_width = str2nr(tok)
-			  let l:explicit_width = l:min_width
-
-		  elseif tok =~# '^\%(s\|screen\|page\)=\d\+$'
-			  let l:screenw = str2nr(matchstr(tok, '\d\+'))
-
-		  elseif tok =~# '^@\d\+$'
-			  let l:screenw = str2nr(tok[1:])
-
-			  " ----- style -----
-		  elseif tolower(tok) =~# '^\%(n\|none\|plain\)$'
-			  let l:style_key = 'n'
-		  elseif tok =~# '^[-=+]$'
-			  let l:style_key = tok
-		  elseif tok =~# '^\S$' && tok !~# '[[:alnum:]]'
-			  " any single printable non-alphanumeric (e.g. *, #, ~)
-			  let l:style_key = tok
-
-			  " ----- inner text align -----
-		  elseif tok =~? '^\(left\|right\|center\|centerblock\|cblock\|c1\|c2\|justify\|j\)$'
-			  let l:align = tolower(tok)
-
-			  " ----- outer align -----
-		  elseif tok =~? '^outer=\(left\|center\|right\)$'
-			  let l:outer = tolower(matchstr(tok, '=\zs.*'))
-		  elseif tok =~? '^o\(left\|center\|right\)$'
-			  let l:outer = tolower(matchstr(tok, '^o\zs.*'))
-
-			  " ----- padding -----
-		  elseif tok =~# '^\%(p\|pad\|ip\)=\d\+$'
-			  let l:inner_pad = str2nr(matchstr(tok, '\d\+'))
-		  endif
-	  endfor
-
-	  " Derive vertical padding (lines) from horizontal padding and ratio.
-	  if l:style_key !=# 'n' && l:inner_pad > 1
-		  let l:inner_vpad = float2nr(floor(l:inner_pad / (l:pad_ratio > 0 ? l:pad_ratio : 1.0)))
-	  endif
 
 	" Derive vertical padding (lines) from horizontal padding and ratio.
 	if l:style_key !=# 'n' && l:inner_pad > 1
 		let l:inner_vpad = float2nr(floor(l:inner_pad / (l:pad_ratio > 0 ? l:pad_ratio : 1.0)))
 	endif
-
+ 
+ 
   endif
 
   " Read lines and rtrim (keep indent)
@@ -246,16 +229,7 @@ function! textdecor#box#Box(first, last, qargs) range
 				  \ '=': {'top': '╔═╗', 'vert': '║║', 'bottom': '╚═╝'},
 				  \ '+': {'top': '+-+', 'vert': '||', 'bottom': '+-+'},
 				  \ }
-
-	  if has_key(l:styles, l:style_key)
-		  let l:style = l:styles[l:style_key]
-	  elseif l:style_key =~# '^\S$' && l:style_key !~# '[[:alnum:]]'
-		  " custom one-char style → use it everywhere
-		  let ch = l:style_key
-		  let l:style = {'top': ch.ch.ch, 'vert': ch.ch, 'bottom': ch.ch.ch}
-	  else
-		  let l:style = l:styles['-']
-	  endif
+	  let l:style = has_key(l:styles, l:style_key) ? l:styles[l:style_key] : l:styles['-']
 	  let [l:tl, l:hz, l:tr]  = split(l:style.top, '\zs')
 	  let [l:bl, l:hz2, l:br] = split(l:style.bottom, '\zs')
 	  let [l:vl, l:vr]        = split(l:style.vert, '\zs')
@@ -367,21 +341,15 @@ function! textdecor#box#Wizard() abort
   let width = (width ==# '' ? width_default : width)
   let outer = (outer ==# '' ? outer_default : outer)
 
-  " Normalize style: allow presets, none, or any single printable symbol
-  let s = type(style)==v:t_string ? trim(style) : style
-  let sl = tolower(s)
-
-  if sl =~# '^\%(n\|none\|plain\)$'
-	  let style = 'n'
-  elseif sl =~# '^[-=+]$'
-	  let style = sl
-  elseif s =~# '^\S$' && s !~# '[[:alnum:]]'
-	  " accept any single non-alphanumeric printable char (e.g. *, #, ~)
-	  let style = s
-  else
-	  let style = tolower(style_default)
-	  if style =~# '^\%(n\|none\|plain\)$' | let style = 'n' | endif
+  " Normalize style → '-', '=', '+', 'n'
+  let s = tolower(style)
+  if s =~# '^\s*\%(none\|plain\|n\)\s*$'
+    let s = 'n'
+  elseif index(['-','=','+','n'], s) < 0
+    let s = tolower(style_default)
+    if s =~# '^\s*\%(none\|plain\|n\)\s*$' | let s = 'n' | endif
   endif
+  let style = s
 
   " Normalize align/outter
   let align_map = {'l':'left','r':'right','c':'center','b':'centerblock','j':'justify'}
