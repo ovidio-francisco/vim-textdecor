@@ -341,11 +341,15 @@ function! textdecor#box#Wizard() abort
   let width = (width ==# '' ? width_default : width)
   let outer = (outer ==# '' ? outer_default : outer)
 
-  " Normalize style → '-', '=', '+', 'n'
+  " Normalize style: allow '-', '=', '+', 'n', or any single printable symbol
   let s = tolower(style)
   if s =~# '^\s*\%(none\|plain\|n\)\s*$'
     let s = 'n'
-  elseif index(['-','=','+','n'], s) < 0
+  elseif s =~# '^\s*.$' && s !~# '\s'
+    " accept any single printable char (like *, #, ~)
+    let s = substitute(s, '\s*', '', 'g')
+  elseif index(['-','=','+'], s) < 0
+    " fallback to default
     let s = tolower(style_default)
     if s =~# '^\s*\%(none\|plain\|n\)\s*$' | let s = 'n' | endif
   endif
@@ -396,6 +400,7 @@ function! textdecor#box#Wizard() abort
     let pad = pad =~# '^\d\+$' ? str2nr(pad) : str2nr(pad_default)
     if pad < 0 | let pad = 0 | endif
   endif
+
 
   " -------------------------
   " Build qargs in order
