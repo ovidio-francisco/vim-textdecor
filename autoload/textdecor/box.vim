@@ -324,8 +324,8 @@ function! textdecor#box#Wizard() abort
   let width_default  = get(g:, 'textdecor_box_minwidth_default', 40)
   let align_default  = get(g:, 'textdecor_box_align_default', 'center')
   let outer_default  = get(g:, 'textdecor_box_outer_default', 'center')
-  let screen_default = get(g:, 'textdecor_box_screen_default',
-        \ (&columns > 0 ? &columns : (&textwidth > 0 ? &textwidth : 80)))
+  let l:eff = s:textwidth_effective(win_getid())
+  let screen_default = get(g:, 'textdecor_box_screen_default', (l:eff > 0 ? l:eff : 80))
   let pad_default    = get(g:, 'textdecor_box_innerpad_default', 1)
 
   " -------------------------
@@ -436,5 +436,10 @@ function! textdecor#box#ParagraphRange() abort
 endfunction
 
 
+" Return the number of columns available for text in the given window
+function! s:textwidth_effective(winid) abort
+  let info = getwininfo(a:winid)[0]
+  return info.width - info.textoff
+endfunction
 
 
