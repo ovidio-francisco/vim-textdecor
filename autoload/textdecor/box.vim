@@ -37,9 +37,6 @@ function! textdecor#box#Box(first, last, qargs) range
         let l:style_key = tok
       elseif tolower(tok) =~# '^\%(n\|none\|plain\)$'
         let l:style_key = 'n'
-      elseif tok =~# '^\S$' && tok !~# '[[:alnum:]]'
-        " accept any single non-alphanumeric printable symbol as custom border
-        let l:style_key = tok
 	  elseif tok =~? '^\(left\|right\|center\|centerblock\|cblock\|c1\|c2\|justify\|j\)$'
 		  let l:align = tolower(tok)
       elseif tok =~? '^outer=\(left\|center\|right\)$'
@@ -78,49 +75,6 @@ function! textdecor#box#Box(first, last, qargs) range
     let l:width   = max([l:maxw_orig, l:min_width])
     let l:do_wrap = 0
   endif
-
-  " Decide target content width (inner width, excluding side padding)
-  if l:explicit_width > 0
-    let l:width   = max([l:explicit_width, 1])
-    let l:do_wrap = 1
-  elseif l:screenw > 0 && (l:maxw_orig + (2*l:inner_pad) + 2) > l:screenw
-    let l:width   = max([l:screenw - ((2*l:inner_pad) + 2), 1])
-    let l:do_wrap = 1
-  else
-    let l:width   = max([l:maxw_orig, l:min_width])
-    let l:do_wrap = 0
-  endif
-
-  " ---------------------------------------------------------
-  " 🔧 Choose border characters based on l:style_key
-  " ---------------------------------------------------------
-  let hchr = '-'    " horizontal
-  let vchr = '|'    " vertical
-  let c_tl = '+'    " corners
-  let c_tr = '+'
-  let c_bl = '+'
-  let c_br = '+'
-
-  if l:style_key ==# 'n'
-    " borderless: skip borders later
-  elseif index(['-','='], l:style_key) >= 0
-    if l:style_key ==# '='
-      let hchr = '='
-    endif
-  elseif l:style_key ==# '+'
-    " you may already have custom logic for '+'
-  else
-    " custom: use the same character everywhere
-    let sym  = l:style_key
-    let hchr = sym
-    let vchr = sym
-    let c_tl = sym
-    let c_tr = sym
-    let c_bl = sym
-    let c_br = sym
-  endif
-
-
 
   " Word-wrap helper
   function! s:Wrap(line, width) abort
@@ -387,15 +341,11 @@ function! textdecor#box#Wizard() abort
   let width = (width ==# '' ? width_default : width)
   let outer = (outer ==# '' ? outer_default : outer)
 
-  " Normalize style: allow '-', '=', '+', 'n', or any single printable symbol
+  " Normalize style → '-', '=', '+', 'n'
   let s = tolower(style)
   if s =~# '^\s*\%(none\|plain\|n\)\s*$'
     let s = 'n'
-  elseif s =~# '^\s*.$' && s !~# '\s'
-    " accept any single printable char (like *, #, ~)
-    let s = substitute(s, '\s*', '', 'g')
-  elseif index(['-','=','+'], s) < 0
-    " fallback to default
+  elseif index(['-','=','+','n'], s) < 0
     let s = tolower(style_default)
     if s =~# '^\s*\%(none\|plain\|n\)\s*$' | let s = 'n' | endif
   endif
