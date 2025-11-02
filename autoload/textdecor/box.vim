@@ -34,10 +34,13 @@ function! textdecor#box#Box(first, last, qargs) range
       elseif tok =~# '^@\d\+$'
         let l:screenw = str2nr(tok[1:])
       " --- style token ---
-      if index(['-','+','='], tok) >= 0
-        let l:style_key = tok
-      elseif tolower(tok) =~# '^\%(n\|none\|plain\)$'
-        let l:style_key = 'n'
+  elseif index(['-','+','='], tok) >= 0
+	  let l:style_key = tok
+  elseif tolower(tok) =~# '^\%(n\|none\|plain\)$'
+	  let l:style_key = 'n'
+  elseif tok =~# '^\S$' && tok !~# '[[:alnum:]]'
+	  " accept any single printable non-alphanumeric symbol like *, #, ~
+	  let l:style_key = tok
       elseif tok =~# '^\S$' && tok !~# '[[:alnum:]]'
         " accept any single printable symbol like *, #, ~
         let l:style_key = tok
@@ -53,6 +56,7 @@ function! textdecor#box#Box(first, last, qargs) range
       endif
     endfor
 
+echom "STYLE_KEY=" . l:style_key
 
 	" Derive vertical padding (lines) from horizontal padding and ratio.
 	if l:style_key !=# 'n' && l:inner_pad > 1
