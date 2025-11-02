@@ -370,17 +370,17 @@ function! textdecor#box#Wizard() abort
 
   let screen = ''
   if outer ==# 'center' || outer ==# 'right'
+    let wcols = s:textwidth_effective(win_getid())
     " Enter → 80 | number → that number | @NN → (window_text_width - NN) | w → window_text_width
-    let scr_in = input("Screen width [80] (number / @NN / 'w' for window): ")
+    let scr_in = input("Screen width (number / @NN / 'w' for window=".wcols.") [80]: ")
   
     if scr_in ==# ''
       let screen = screen_default
     elseif scr_in =~? '^\s*w\s*$'
-      let screen = s:textwidth_effective(win_getid())
+      let screen = wcols
     elseif type(scr_in)==v:t_string && scr_in =~# '^@\d\+$'
       let off = str2nr(scr_in[1:])
-      let base = s:textwidth_effective(win_getid())
-      let screen = max([1, base - off])
+      let screen = max([1, wcols - off])
     elseif scr_in =~# '^\d\+$'
       let screen = str2nr(scr_in)
       if screen < 1 | let screen = 80 | endif
