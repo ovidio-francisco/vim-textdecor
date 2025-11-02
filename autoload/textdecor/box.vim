@@ -33,21 +33,23 @@ function! textdecor#box#Box(first, last, qargs) range
         let l:screenw = str2nr(matchstr(tok, '\d\+'))
       elseif tok =~# '^@\d\+$'
         let l:screenw = str2nr(tok[1:])
-      elseif index(['-','+','='], tok) >= 0
+      " --- style token ---
+      if index(['-','+','='], tok) >= 0
         let l:style_key = tok
       elseif tolower(tok) =~# '^\%(n\|none\|plain\)$'
         let l:style_key = 'n'
       elseif tok =~# '^\S$' && tok !~# '[[:alnum:]]'
-        " accept any single printable non-alphanumeric symbol like *, #, ~, etc.
+        " accept any single printable symbol like *, #, ~
         let l:style_key = tok
-      elseif tok =~? '^\(left\|right\|center\|centerblock\|cblock\|c1\|c2\|justify\|j\)$'
-        let l:align = tolower(tok)
+      endif
+	  elseif tok =~? '^\(left\|right\|center\|centerblock\|cblock\|c1\|c2\|justify\|j\)$'
+		  let l:align = tolower(tok)
       elseif tok =~? '^outer=\(left\|center\|right\)$'
         let l:outer = tolower(matchstr(tok, '=\zs.*'))
       elseif tok =~? '^o\(left\|center\|right\)$'
         let l:outer = tolower(matchstr(tok, '^o\zs.*'))
-      elseif tok =~# '^\%(p\|pad\|ip\)=\d\+$'
-        let l:inner_pad = str2nr(matchstr(tok, '\d\+'))
+	  elseif tok =~# '^\%(p\|pad\|ip\)=\d\+$'
+	    let l:inner_pad = str2nr(matchstr(tok, '\d\+'))
       endif
     endfor
 
@@ -226,7 +228,6 @@ function! textdecor#box#Box(first, last, qargs) range
 	  " Borderless: no inner side padding added here.
 	  let l:boxed = copy(l:content_lines)
   else
-	  
 	  " ---- Bordered styles ----
 	  let l:styles = {
 				  \ '-': {'top': '┌─┐', 'vert': '││', 'bottom': '└─┘'},
@@ -237,13 +238,12 @@ function! textdecor#box#Box(first, last, qargs) range
 	  if has_key(l:styles, l:style_key)
 		  let l:style = l:styles[l:style_key]
 	  elseif l:style_key =~# '^\S$' && l:style_key !~# '[[:alnum:]]'
-		  " Custom one-char symbol → use it for all borders
+		  " Custom one-character border: use it for everything
 		  let ch = l:style_key
 		  let l:style = {'top': ch.ch.ch, 'vert': ch.ch, 'bottom': ch.ch.ch}
 	  else
 		  let l:style = l:styles['-']
 	  endif
-
 	  let [l:tl, l:hz, l:tr]  = split(l:style.top, '\zs')
 	  let [l:bl, l:hz2, l:br] = split(l:style.bottom, '\zs')
 	  let [l:vl, l:vr]        = split(l:style.vert, '\zs')
