@@ -238,7 +238,7 @@ function! textdecor#box#Box(first, last, qargs) range
 	  if has_key(l:styles, l:style_key)
 		  let l:style = l:styles[l:style_key]
 	  elseif l:style_key =~# '^\S$' && l:style_key !~# '[[:alnum:]]'
-		  " Custom one-character border: use it for everything
+		  " custom one-char style → use it everywhere
 		  let ch = l:style_key
 		  let l:style = {'top': ch.ch.ch, 'vert': ch.ch, 'bottom': ch.ch.ch}
 	  else
@@ -355,15 +355,21 @@ function! textdecor#box#Wizard() abort
   let width = (width ==# '' ? width_default : width)
   let outer = (outer ==# '' ? outer_default : outer)
 
-  " Normalize style → '-', '=', '+', 'n'
-  let s = tolower(style)
-  if s =~# '^\s*\%(none\|plain\|n\)\s*$'
-    let s = 'n'
-  elseif index(['-','=','+','n'], s) < 0
-    let s = tolower(style_default)
-    if s =~# '^\s*\%(none\|plain\|n\)\s*$' | let s = 'n' | endif
+  " Normalize style: allow presets, none, or any single printable symbol
+  let s = type(style)==v:t_string ? trim(style) : style
+  let sl = tolower(s)
+
+  if sl =~# '^\%(n\|none\|plain\)$'
+	  let style = 'n'
+  elseif sl =~# '^[-=+]$'
+	  let style = sl
+  elseif s =~# '^\S$' && s !~# '[[:alnum:]]'
+	  " accept any single non-alphanumeric printable char (e.g. *, #, ~)
+	  let style = s
+  else
+	  let style = tolower(style_default)
+	  if style =~# '^\%(n\|none\|plain\)$' | let style = 'n' | endif
   endif
-  let style = s
 
   " Normalize align/outter
   let align_map = {'l':'left','r':'right','c':'center','b':'centerblock','j':'justify'}
