@@ -20,41 +20,53 @@ function! textdecor#box#Box(first, last, qargs) range
   let l:inner_vpad = 0
 
 
-  " --- Parse <q-args> (also accept n|none|plain) --------------------------
+  " --- Parse <q-args> (also accept n|none|plain and custom symbol) ----------
   if !empty(a:qargs)
-    for tok in split(a:qargs)
-      if tok =~# '^\%(w\|width\|min\)=\d\+$'
-        let l:min_width = str2nr(matchstr(tok, '\d\+'))
-        let l:explicit_width = l:min_width
-      elseif tok =~# '^\d\+$'
-        let l:min_width = str2nr(tok)
-        let l:explicit_width = l:min_width
-      elseif tok =~# '^\%(s\|screen\|page\)=\d\+$'
-        let l:screenw = str2nr(matchstr(tok, '\d\+'))
-      elseif tok =~# '^@\d\+$'
-        let l:screenw = str2nr(tok[1:])
-      " --- style token ---
-  elseif index(['-','+','='], tok) >= 0
-	  let l:style_key = tok
-  elseif tolower(tok) =~# '^\%(n\|none\|plain\)$'
-	  let l:style_key = 'n'
-  elseif tok =~# '^\S$' && tok !~# '[[:alnum:]]'
-	  " accept any single printable non-alphanumeric symbol like *, #, ~
-	  let l:style_key = tok
-      elseif tok =~# '^\S$' && tok !~# '[[:alnum:]]'
-        " accept any single printable symbol like *, #, ~
-        let l:style_key = tok
-      endif
-	  elseif tok =~? '^\(left\|right\|center\|centerblock\|cblock\|c1\|c2\|justify\|j\)$'
-		  let l:align = tolower(tok)
-      elseif tok =~? '^outer=\(left\|center\|right\)$'
-        let l:outer = tolower(matchstr(tok, '=\zs.*'))
-      elseif tok =~? '^o\(left\|center\|right\)$'
-        let l:outer = tolower(matchstr(tok, '^o\zs.*'))
-	  elseif tok =~# '^\%(p\|pad\|ip\)=\d\+$'
-	    let l:inner_pad = str2nr(matchstr(tok, '\d\+'))
-      endif
-    endfor
+	  for tok in split(a:qargs)
+		  if tok =~# '^\%(w\|width\|min\)=\d\+$'
+			  let l:min_width = str2nr(matchstr(tok, '\d\+'))
+			  let l:explicit_width = l:min_width
+
+		  elseif tok =~# '^\d\+$'
+			  let l:min_width = str2nr(tok)
+			  let l:explicit_width = l:min_width
+
+		  elseif tok =~# '^\%(s\|screen\|page\)=\d\+$'
+			  let l:screenw = str2nr(matchstr(tok, '\d\+'))
+
+		  elseif tok =~# '^@\d\+$'
+			  let l:screenw = str2nr(tok[1:])
+
+			  " ----- style -----
+		  elseif tolower(tok) =~# '^\%(n\|none\|plain\)$'
+			  let l:style_key = 'n'
+		  elseif tok =~# '^[-=+]$'
+			  let l:style_key = tok
+		  elseif tok =~# '^\S$' && tok !~# '[[:alnum:]]'
+			  " any single printable non-alphanumeric (e.g. *, #, ~)
+			  let l:style_key = tok
+
+			  " ----- inner text align -----
+		  elseif tok =~? '^\(left\|right\|center\|centerblock\|cblock\|c1\|c2\|justify\|j\)$'
+			  let l:align = tolower(tok)
+
+			  " ----- outer align -----
+		  elseif tok =~? '^outer=\(left\|center\|right\)$'
+			  let l:outer = tolower(matchstr(tok, '=\zs.*'))
+		  elseif tok =~? '^o\(left\|center\|right\)$'
+			  let l:outer = tolower(matchstr(tok, '^o\zs.*'))
+
+			  " ----- padding -----
+		  elseif tok =~# '^\%(p\|pad\|ip\)=\d\+$'
+			  let l:inner_pad = str2nr(matchstr(tok, '\d\+'))
+		  endif
+	  endfor
+
+	  " Derive vertical padding (lines) from horizontal padding and ratio.
+	  if l:style_key !=# 'n' && l:inner_pad > 1
+		  let l:inner_vpad = float2nr(floor(l:inner_pad / (l:pad_ratio > 0 ? l:pad_ratio : 1.0)))
+	  endif
+  endif
 
 echom "STYLE_KEY=" . l:style_key
 
