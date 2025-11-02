@@ -66,7 +66,6 @@ function! textdecor#box#Box(first, last, qargs) range
 	  if l:style_key !=# 'n' && l:inner_pad > 1
 		  let l:inner_vpad = float2nr(floor(l:inner_pad / (l:pad_ratio > 0 ? l:pad_ratio : 1.0)))
 	  endif
-  endif
 
 echom "STYLE_KEY=" . l:style_key
 
