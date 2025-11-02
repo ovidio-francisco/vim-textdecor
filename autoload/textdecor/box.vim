@@ -33,10 +33,14 @@ function! textdecor#box#Box(first, last, qargs) range
         let l:screenw = str2nr(matchstr(tok, '\d\+'))
       elseif tok =~# '^@\d\+$'
         let l:screenw = str2nr(tok[1:])
+      " Style token
       elseif index(['-','+','='], tok) >= 0
         let l:style_key = tok
       elseif tolower(tok) =~# '^\%(n\|none\|plain\)$'
         let l:style_key = 'n'
+      elseif tok =~# '^\S$' && tok !~# '[[:alnum:]]'
+        " accept any single printable non-alphanumeric symbol like *, #, ~, etc.
+        let l:style_key = tok
 	  elseif tok =~? '^\(left\|right\|center\|centerblock\|cblock\|c1\|c2\|justify\|j\)$'
 		  let l:align = tolower(tok)
       elseif tok =~? '^outer=\(left\|center\|right\)$'
@@ -229,23 +233,15 @@ function! textdecor#box#Box(first, last, qargs) range
 				  \ '=': {'top': '╔═╗', 'vert': '║║', 'bottom': '╚═╝'},
 				  \ '+': {'top': '+-+', 'vert': '||', 'bottom': '+-+'},
 				  \ }
-	  let l:style = has_key(l:styles, l:style_key) ? l:styles[l:style_key] : l:styles['-']
-	  let [l:tl, l:hz, l:tr]  = split(l:style.top, '\zs')
-	  let [l:bl, l:hz2, l:br] = split(l:style.bottom, '\zs')
-	  let [l:vl, l:vr]        = split(l:style.vert, '\zs')
 
-	  " Top/bottom widths include 2*inner_pad
-	  let l:top    = l:tl . repeat(l:hz, l:width + (2*l:inner_pad)) . l:tr
-	  let l:bottom = l:bl . repeat(l:hz, l:width + (2*l:inner_pad)) . l:br
-
-	  let l:boxed = [l:top]
-
-	  " ⬆️ TOP vertical padding (blank inner rows)
-	  if exists('l:inner_vpad') && l:inner_vpad > 0
-		  let l:empty_inner = l:vl . repeat(' ', l:inner_pad) . repeat(' ', l:width) . repeat(' ', l:inner_pad) . l:vr
-		  for _ in range(1, l:inner_vpad)
-			  call add(l:boxed, l:empty_inner)
-		  endfor
+	  if has_key(l:styles, l:style_key)
+		  let l:style = l:styles[l:style_key]
+	  elseif l:style_key =~# '^\S$' && l:style_key !~# '[[:alnum:]]'
+		  " Custom one-char symbol → use it for all borders
+		  let ch = l:style_key
+		  let l:style = {'top': ch.ch.ch, 'vert': ch.ch, 'bottom': ch.ch.ch}
+	  else
+		  let l:style = l:styles['-']
 	  endif
 
 	  " Content lines
