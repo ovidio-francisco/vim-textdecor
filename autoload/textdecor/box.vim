@@ -324,8 +324,7 @@ function! textdecor#box#Wizard() abort
   let width_default  = get(g:, 'textdecor_box_minwidth_default', 40)
   let align_default  = get(g:, 'textdecor_box_align_default', 'center')
   let outer_default  = get(g:, 'textdecor_box_outer_default', 'center')
-  let l:eff = s:textwidth_effective(win_getid())
-  let screen_default = get(g:, 'textdecor_box_screen_default', (l:eff > 0 ? l:eff : 80))
+  let screen_default = get(g:, 'textdecor_box_screen_default', 80)
   let pad_default    = get(g:, 'textdecor_box_innerpad_default', 1)
 
   " -------------------------
@@ -371,26 +370,28 @@ function! textdecor#box#Wizard() abort
 
   let screen = ''
   if outer ==# 'center' || outer ==# 'right'
-    let scr_in = input('Screen width (number or @NN) ['.screen_default.']: ')
-    let screen = (scr_in ==# '' ? screen_default : scr_in)
-    let screen_is_at = (type(screen)==v:t_string && screen =~# '^@\d\+$')
-    if !screen_is_at
-      if type(screen)==v:t_string && screen =~# '^\d\+$'
-        let screen = str2nr(screen)
-      elseif type(screen)==v:t_number
-        " keep
-      else
-        let screen = str2nr(screen_default)
-      endif
-      if screen < 1
-        let screen = (&columns > 0 ? &columns : 80)
-      endif
+    " Enter → 80 | number → that number | @NN → (window_text_width - NN) | w → window_text_width
+    let scr_in = input("Screen width [80] (number / @NN / 'w' for window): ")
+  
+    if scr_in ==# ''
+      let screen = screen_default
+    elseif scr_in =~? '^\s*w\s*$'
+      let screen = s:textwidth_effective(win_getid())
+    elseif type(scr_in)==v:t_string && scr_in =~# '^@\d\+$'
+      let off = str2nr(scr_in[1:])
+      let base = s:textwidth_effective(win_getid())
+      let screen = max([1, base - off])
+    elseif scr_in =~# '^\d\+$'
+      let screen = str2nr(scr_in)
+      if screen < 1 | let screen = 80 | endif
+    else
+      let screen = 80
     endif
   endif
 
   let pad = 0
   if style !=# 'n'
-    let pad_in = input('Inner padding (spaces; bordered only) ['.pad_default.']: ')
+    let pad_in = input('Inner padding ['.pad_default.']: ')
     let pad = (pad_in ==# '' ? pad_default : pad_in)
     let pad = pad =~# '^\d\+$' ? str2nr(pad) : str2nr(pad_default)
     if pad < 0 | let pad = 0 | endif
